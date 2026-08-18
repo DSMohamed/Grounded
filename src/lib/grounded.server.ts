@@ -9,7 +9,12 @@ import type {
 /**
  * Port of the Day 3 notebook pipeline (Config A: chunk_size=500, overlap=75, top_k=5).
  * Grounding rules, schema, citation format and thresholds are preserved as-is.
+ *
+ * When the FastAPI backend is available, all calls are proxied to it.
+ * Falls back to the built-in TypeScript simulation when the backend is unreachable.
  */
+
+const API_BASE = process.env["VITE_API_URL"] || "http://localhost:8000";
 
 export const WEAK_THRESHOLD = 0.35;
 export const TOP_K = 5;
@@ -223,9 +228,33 @@ export function validateResponse(
   };
 }
 
+/* ----------------------------- backend proxy ----------------------------- */
+
+async function callBackendApi(question: string): Promise<AskResponse | null> {
+  try {
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as AskResponse;
+  } catch {
+    return null;
+  }
+}
+
 /* -------------------------------- pipeline ------------------------------- */
 
 export async function runPipeline(question: string): Promise<AskResponse> {
+  // Try the FastAPI backend first
+  const backendResult = await callBackendApi(question);
+  if (backendResult) return backendResult;
+
+  // Fallback to built-in TypeScript simulation
+  console.log("[pipeline] FastAPI backend unreachable, using built-in simulation");
+
   const mode: "live" | "simulated" = process.env["OPEN_ROUTER_KEY"]
     ? "live"
     : "simulated";
