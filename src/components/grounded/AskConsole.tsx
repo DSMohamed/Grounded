@@ -7,6 +7,7 @@ import { ConfidenceBadge } from "./ConfidenceBadge";
 import { StageTracker, STAGES } from "./StageTracker";
 import { ClaimCard } from "./ClaimCard";
 import { EvidencePanel } from "./EvidencePanel";
+import { ModeBadge } from "./ModeBadge";
 import { cn } from "@/lib/utils";
 
 export function useAskController() {
@@ -200,11 +201,7 @@ function ResultHeader({ result }: { result: AskResponse }) {
       <span className="label-mono rounded-[3px] border border-border px-3 py-1.5 text-muted-foreground">
         decision_path: {result.decision_path}
       </span>
-      {result.mode === "simulated" && (
-        <span className="label-mono rounded-[3px] border border-dashed border-border px-3 py-1.5 text-muted-foreground">
-          running without a live model — retrieval + schema logic only
-        </span>
-      )}
+      <ModeBadge mode={result.mode} />
     </div>
   );
 }

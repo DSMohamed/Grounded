@@ -11,6 +11,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { GroundedLogo } from "../components/grounded/GroundedLogo";
+import { ModeBadge } from "../components/grounded/ModeBadge";
 
 function NotFoundComponent() {
   return (
@@ -139,23 +140,26 @@ function RootComponent() {
                 </span>
               </div>
             </Link>
-            <nav className="ml-auto flex items-center gap-1">
-              <Link
-                to="/"
-                className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "text-evidence bg-evidence-soft" }}
-                activeOptions={{ exact: true }}
-              >
-                Ask
-              </Link>
-              <Link
-                to="/demo"
-                className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "text-evidence bg-evidence-soft" }}
-              >
-                Demo mode
-              </Link>
-            </nav>
+            <div className="ml-auto flex items-center gap-3">
+              <ModeBadge />
+              <nav className="flex items-center gap-1 border-l border-border pl-3">
+                <Link
+                  to="/"
+                  className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                  activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                  activeOptions={{ exact: true }}
+                >
+                  Ask
+                </Link>
+                <Link
+                  to="/demo"
+                  className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                  activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                >
+                  Demo mode
+                </Link>
+              </nav>
+            </div>
           </div>
         </header>
 
