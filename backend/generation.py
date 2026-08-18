@@ -131,13 +131,17 @@ def generate_grounded_answer(
         try:
             from langchain_openai import ChatOpenAI
 
-            model_name = os.environ.get("OPEN_ROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+            model_name = os.environ.get("OPEN_ROUTER_MODEL", "openai/gpt-oss-20b:free")
             llm = ChatOpenAI(
                 model=model_name,
                 base_url="https://openrouter.ai/api/v1",
                 api_key=api_key,
                 temperature=0,
                 max_tokens=800,
+                default_headers={
+                    "HTTP-Referer": "http://localhost:8080",
+                    "X-Title": "Grounded Clinical Assistant",
+                },
             )
 
             context = build_context(chunks)

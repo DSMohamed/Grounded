@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { GroundedLogo } from "../components/grounded/GroundedLogo";
 
 function NotFoundComponent() {
   return (
@@ -35,11 +35,8 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("[Grounded Application Error]", error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -98,7 +95,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Public+Sans:wght@400;500;600&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "apple-touch-icon", href: "/icon.svg" },
     ],
   }),
   shellComponent: RootShell,
@@ -129,11 +128,16 @@ function RootComponent() {
       <div className="flex min-h-screen flex-col">
         <header className="border-b border-border bg-paper/80 backdrop-blur">
           <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-            <Link to="/" className="flex items-baseline gap-2">
-              <span className="font-serif text-xl tracking-tight">Grounded</span>
-              <span className="label-mono text-muted-foreground">
-                USPSTF · skin cancer prevention
-              </span>
+            <Link to="/" className="flex items-center gap-2.5">
+              <GroundedLogo className="size-7 text-evidence" />
+              <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
+                  Grounded
+                </span>
+                <span className="label-mono text-muted-foreground text-[10px]">
+                  USPSTF · clinical evidence counseling
+                </span>
+              </div>
             </Link>
             <nav className="ml-auto flex items-center gap-1">
               <Link
