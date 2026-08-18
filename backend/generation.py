@@ -108,12 +108,25 @@ def _simulate_llm_response(question: str, chunks: list[dict]) -> dict:
 
 
 def _parse_llm_json(raw_text: str) -> dict:
-    """Parse JSON from LLM response, handling markdown fences."""
+    """Parse JSON from LLM response, handling markdown fences and surrounding text."""
     text = raw_text.strip()
     if text.startswith("```"):
         text = text.strip("`")
         if text.lower().startswith("json"):
-            text = text[4:]
+            text = text[4:].strip()
+    
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except Exception:
+        pass
+    
+    # Try finding JSON block between { and }
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        return json.loads(text[start : end + 1])
+    
     return json.loads(text)
 
 
@@ -137,8 +150,8 @@ def generate_grounded_answer(
                 base_url="https://openrouter.ai/api/v1",
                 api_key=api_key,
                 temperature=0,
-                max_tokens=800,
-                request_timeout=15,
+                max_tokens=2048,
+                request_timeout=25,
                 default_headers={
                     "HTTP-Referer": "http://localhost:8080",
                     "X-Title": "Grounded Clinical Assistant",

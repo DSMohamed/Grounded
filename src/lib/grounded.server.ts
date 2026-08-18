@@ -242,7 +242,7 @@ async function callBackendApi(question: string): Promise<AskResponse | null> {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(2500),
       });
       if (res.ok) {
         return (await res.json()) as AskResponse;
