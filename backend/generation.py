@@ -138,6 +138,7 @@ def generate_grounded_answer(
                 api_key=api_key,
                 temperature=0,
                 max_tokens=800,
+                request_timeout=15,
                 default_headers={
                     "HTTP-Referer": "http://localhost:8080",
                     "X-Title": "Grounded Clinical Assistant",

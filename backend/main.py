@@ -141,7 +141,7 @@ async def health():
 
 
 @app.post("/ask", response_model=AskResponse)
-async def ask_endpoint(req: AskRequest):
+def ask_endpoint(req: AskRequest):
     """
     Full pipeline: classify → retrieve → threshold check → generate → validate.
     """

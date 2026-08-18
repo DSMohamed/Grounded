@@ -36,7 +36,26 @@ export function useAskController() {
         timers.current.push(setTimeout(() => setStage(s), 220 * (i + 1)));
       });
       try {
-        const res = await askFn({ data: { question: text } });
+        let res: AskResponse | null = null;
+        // Try direct browser connection to FastAPI backend first
+        try {
+          const apiRes = await fetch("http://127.0.0.1:8000/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ question: text }),
+            signal: AbortSignal.timeout(30000),
+          });
+          if (apiRes.ok) {
+            res = (await apiRes.json()) as AskResponse;
+          }
+        } catch {
+          // fallback to SSR server function
+        }
+
+        if (!res) {
+          res = await askFn({ data: { question: text } });
+        }
+
         timers.current.forEach(clearTimeout);
         setStage(STAGES.length - 1);
         setTimeout(() => {

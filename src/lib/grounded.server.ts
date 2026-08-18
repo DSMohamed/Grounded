@@ -14,9 +14,9 @@ import type {
  * Falls back to the built-in TypeScript simulation when the backend is unreachable.
  */
 
-const API_BASE = process.env["VITE_API_URL"] || "http://localhost:8000";
+const API_BASE = process.env["VITE_API_URL"] || "http://127.0.0.1:8000";
 
-export const WEAK_THRESHOLD = 0.68;
+export const WEAK_THRESHOLD = 0.30;
 export const TOP_K = 5;
 
 const DOC = "USPSTF Skin Cancer Prevention: Behavioral Counseling (2018)";
@@ -231,18 +231,27 @@ export function validateResponse(
 /* ----------------------------- backend proxy ----------------------------- */
 
 async function callBackendApi(question: string): Promise<AskResponse | null> {
-  try {
-    const res = await fetch(`${API_BASE}/ask`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as AskResponse;
-  } catch {
-    return null;
+  const urls = [
+    `${API_BASE}/ask`,
+    "http://127.0.0.1:8000/ask",
+    "http://localhost:8000/ask",
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (res.ok) {
+        return (await res.json()) as AskResponse;
+      }
+    } catch {
+      // try next URL
+    }
   }
+  return null;
 }
 
 /* -------------------------------- pipeline ------------------------------- */
