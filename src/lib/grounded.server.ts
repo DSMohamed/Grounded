@@ -16,7 +16,7 @@ import type {
 
 const API_BASE = process.env["VITE_API_URL"] || "http://localhost:8000";
 
-export const WEAK_THRESHOLD = 0.35;
+export const WEAK_THRESHOLD = 0.68;
 export const TOP_K = 5;
 
 const DOC = "USPSTF Skin Cancer Prevention: Behavioral Counseling (2018)";

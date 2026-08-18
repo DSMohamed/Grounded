@@ -1,60 +1,53 @@
 """
 PDF loading, cleaning, and chunking.
 Config A: chunk_size=500, overlap=75 (selected after Day 2 evaluation).
+Ported exactly from T1_Day3_OpenRouter_Free notebook.
 """
 
+import os
 import re
 from pathlib import Path
 
 from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+DOC_ID = "uspstf_skin_cancer_2018"
+DOC_NAME = "Behavioral Counseling to Prevent Skin Cancer - Recommendation Statement"
+SOURCE_URL = "https://www.uspreventiveservicestaskforce.org"
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 75
+REF_START_PAGE = 7  # 0-indexed: removes pages >= 7 (references section)
+
+PAGE_SECTION_MAP = {
+    1: "Abstract & Recommendation Summary",
+    2: "Summary of Recommendations and Evidence",
+    3: "Rationale - Benefits, Harms, and Clinical Considerations",
+    4: "Clinical Considerations - Risk Assessment and Counseling",
+    5: "Implementation and Research Needs",
+    6: "Discussion - Evidence on Behavior Change and Cancer Risk",
+    7: "Discussion - Net Benefit and Recommendation Update",
+}
+
 PDF_PATH = Path(__file__).resolve().parent.parent / "skin-cancer-counseling-final-recommendation.pdf"
 
 
-def _clean_text(text: str) -> str:
-    """Remove artefacts common in USPSTF PDF exports."""
-    # collapse excessive whitespace
-    text = re.sub(r"[ \t]+", " ", text)
-    # normalise line breaks
-    text = re.sub(r"\n{3,}", "\n\n", text)
+def clean_text(text: str) -> str:
+    """Clean text exactly as in notebook Cell 1."""
+    if not text:
+        return ""
+    text = re.sub(r"-\s*\n\s*", "", text)
+    text = re.sub(r"[\n\r\t]+", " ", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    text = re.sub(r"[^\x20-\x7E]", " ", text)
+    text = re.sub(r"\s{2,}", " ", text)
     return text.strip()
 
 
-def _detect_section(text: str, page_num: int) -> str:
+def load_and_chunk(pdf_path: Path | None = None) -> list[Document]:
     """
-    Best-effort section detection from chunk content.
-    Matches known USPSTF recommendation-statement headings.
-    """
-    section_patterns = [
-        (r"(?i)recommendation\s*summary", "Recommendation Summary"),
-        (r"(?i)importance", "Importance"),
-        (r"(?i)net benefit", "Net Benefit"),
-        (r"(?i)practice\s*considerations", "Practice Considerations"),
-        (r"(?i)risk\s*assessment", "Risk Assessment"),
-        (r"(?i)benefit.+counseling", "Benefits of Counseling"),
-        (r"(?i)harm.+counseling", "Harms of Counseling"),
-        (r"(?i)sunscreen\s*evidence", "Sunscreen Evidence"),
-        (r"(?i)skin\s*self.?exam", "Skin Self-Examination"),
-        (r"(?i)other\s*considerations", "Other Considerations"),
-        (r"(?i)discussion", "Discussion"),
-        (r"(?i)clinical\s*considerations", "Clinical Considerations"),
-        (r"(?i)rationale", "Rationale"),
-        (r"(?i)evidence\s*summary", "Evidence Summary"),
-        (r"(?i)behavioral\s*counseling", "Behavioral Counseling Interventions"),
-    ]
-    for pattern, label in section_patterns:
-        if re.search(pattern, text):
-            return label
-    return f"Page {page_num}"
-
-
-def load_and_chunk(pdf_path: Path | None = None) -> list[dict]:
-    """
-    Load the PDF, clean it, and split into chunks with metadata.
-    Returns a list of dicts: {text, metadata: {document_name, section, page, chunk_id}}.
+    Load the PDF, clean it, filter reference pages, and chunk using Config A (500/75).
     """
     path = pdf_path or PDF_PATH
     if not path.exists():
@@ -63,31 +56,34 @@ def load_and_chunk(pdf_path: Path | None = None) -> list[dict]:
     loader = PyPDFLoader(str(path))
     raw_pages = loader.load()
 
-    # Clean page content
-    for page in raw_pages:
-        page.page_content = _clean_text(page.page_content)
+    cleaned_pages = []
+    for p in raw_pages:
+        txt = clean_text(p.page_content)
+        if txt:
+            cleaned_pages.append(Document(page_content=txt, metadata=p.metadata))
+
+    # Strip reference pages (page 7+ in 0-indexed PyPDF)
+    clinical_pages = [d for d in cleaned_pages if d.metadata.get("page", 0) < REF_START_PAGE]
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=CHUNK_SIZE,
         chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
+        separators=["\n\n", "\n", ". ", "; ", " ", ""],
     )
+    chunks = splitter.split_documents(clinical_pages)
 
-    chunks = splitter.split_documents(raw_pages)
-
-    doc_name = "USPSTF Skin Cancer Prevention: Behavioral Counseling (2018)"
-    results = []
     for i, chunk in enumerate(chunks):
-        page_num = chunk.metadata.get("page", 0) + 1  # PyPDFLoader is 0-indexed
-        section = _detect_section(chunk.page_content, page_num)
-        results.append({
-            "text": chunk.page_content,
-            "metadata": {
-                "document_name": doc_name,
-                "section": section,
-                "page": page_num,
-                "chunk_id": f"c{i:04d}",
-            },
-        })
+        page = chunk.metadata.get("page", None)
+        page_num = (page + 1) if page is not None else 1
+        chunk_id_str = f"{DOC_ID}-CH-{i+1:03d}"
 
-    return results
+        chunk.metadata["document_id"] = DOC_ID
+        chunk.metadata["document_name"] = DOC_NAME
+        chunk.metadata["page"] = page_num
+        chunk.metadata["page_number"] = page_num
+        chunk.metadata["section"] = PAGE_SECTION_MAP.get(page_num, "Unclassified")
+        chunk.metadata["chunk_id"] = chunk_id_str
+        chunk.metadata["source_url"] = SOURCE_URL
+        chunk.metadata.pop("source", None)
+
+    return chunks
