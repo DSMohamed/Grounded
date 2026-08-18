@@ -131,8 +131,9 @@ def generate_grounded_answer(
         try:
             from langchain_openai import ChatOpenAI
 
+            model_name = os.environ.get("OPEN_ROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
             llm = ChatOpenAI(
-                model="openai/gpt-oss-20b:free",
+                model=model_name,
                 base_url="https://openrouter.ai/api/v1",
                 api_key=api_key,
                 temperature=0,
