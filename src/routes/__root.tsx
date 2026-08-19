@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -124,70 +125,78 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isChat = pathname === "/";
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex min-h-screen flex-col">
-        <header className="border-b border-border bg-paper/80 backdrop-blur">
-          <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-            <Link to="/" className="flex items-center gap-2.5">
-              <GroundedLogo className="size-7 text-evidence" />
-              <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
-                <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
-                  Grounded
-                </span>
-                <span className="label-mono text-muted-foreground text-[10px]">
-                  USPSTF · clinical evidence counseling
-                </span>
-              </div>
-            </Link>
-            <div className="ml-auto flex items-center gap-3">
-              <ModeBadge />
-              <nav className="flex items-center gap-1 border-l border-border pl-3">
-                <Link
-                  to="/"
-                  className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                  activeProps={{ className: "text-evidence bg-evidence-soft" }}
-                  activeOptions={{ exact: true }}
-                >
-                  Ask
-                </Link>
-                <Link
-                  to="/demo"
-                  className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                  activeProps={{ className: "text-evidence bg-evidence-soft" }}
-                >
-                  Demo
-                </Link>
-                <Link
-                  to="/how-it-works"
-                  className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                  activeProps={{ className: "text-evidence bg-evidence-soft" }}
-                >
-                  Architecture
-                </Link>
-              </nav>
-              <ThemeToggle />
-            </div>
-          </div>
-        </header>
-
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
+      {isChat ? (
+        <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
           <Outlet />
-        </main>
+        </div>
+      ) : (
+        <div className="flex min-h-screen flex-col">
+          <header className="border-b border-border bg-paper/80 backdrop-blur">
+            <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
+              <Link to="/" className="flex items-center gap-2.5">
+                <GroundedLogo className="size-7 text-evidence" />
+                <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
+                  <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
+                    Grounded
+                  </span>
+                  <span className="label-mono text-muted-foreground text-[10px]">
+                    USPSTF · clinical evidence counseling
+                  </span>
+                </div>
+              </Link>
+              <div className="ml-auto flex items-center gap-3">
+                <ModeBadge />
+                <nav className="flex items-center gap-1 border-l border-border pl-3">
+                  <Link
+                    to="/"
+                    className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                    activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                    activeOptions={{ exact: true }}
+                  >
+                    Chat
+                  </Link>
+                  <Link
+                    to="/demo"
+                    className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                    activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                  >
+                    Demo
+                  </Link>
+                  <Link
+                    to="/how-it-works"
+                    className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                    activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                  >
+                    Architecture
+                  </Link>
+                </nav>
+                <ThemeToggle />
+              </div>
+            </div>
+          </header>
 
-        <footer className="border-t border-border bg-paper">
-          <div className="mx-auto max-w-6xl px-6 py-5">
-            <p className="text-xs leading-relaxed text-muted-foreground">
-              <span className="label-mono mr-2 text-foreground/70">Disclaimer</span>
-              This tool supports, and does not replace, clinical judgment. Answers
-              are limited to the indexed USPSTF guideline text and are not
-              diagnosis or personalized medical advice.
-            </p>
-          </div>
-        </footer>
-      </div>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
+            <Outlet />
+          </main>
+
+          <footer className="border-t border-border bg-paper">
+            <div className="mx-auto max-w-6xl px-6 py-5">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                <span className="label-mono mr-2 text-foreground/70">Disclaimer</span>
+                This tool supports, and does not replace, clinical judgment. Answers
+                are limited to the indexed USPSTF guideline text and are not
+                diagnosis or personalized medical advice.
+              </p>
+            </div>
+          </footer>
+        </div>
+      )}
     </QueryClientProvider>
   );
 }

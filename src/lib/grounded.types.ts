@@ -66,3 +66,50 @@ export const DEMO_CASES = [
     question: "What is the recommended screening interval for breast cancer?",
   },
 ] as const;
+
+/* ── Chat / Conversation types ─────────────────────────────────────────── */
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  /** Only present for assistant messages */
+  response?: AskResponse;
+  /** Pipeline stage during loading (-1 = idle, 0-4 = stages, 5 = done) */
+  stage?: number;
+  /** Elapsed time in ms */
+  elapsedMs?: number;
+  timestamp: number;
+}
+
+export interface Conversation {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export const STARTER_PROMPTS = [
+  {
+    icon: "☀️",
+    label: "Sun Protection",
+    question: "What does the USPSTF recommend about counseling young adults on minimizing UV radiation exposure?",
+  },
+  {
+    icon: "🔬",
+    label: "Evidence by Age",
+    question: "How do the counseling recommendations differ by age group?",
+  },
+  {
+    icon: "🧴",
+    label: "Sunscreen Evidence",
+    question: "What is the evidence on sunscreen versus protective clothing?",
+  },
+  {
+    icon: "⚠️",
+    label: "Counseling Harms",
+    question: "Are there harms associated with sun-protection counseling?",
+  },
+] as const;
+

@@ -12,7 +12,7 @@ export const STAGES = [
 const STAGE_ICONS: LucideIcon[] = [Shield, Search, Gauge, Brain, BadgeCheck];
 const STAGE_SHORT = ["Risk", "Retrieve", "Threshold", "Generate", "Validate"];
 
-export function StageTracker({ current, elapsedMs }: { current: number; elapsedMs?: number }) {
+export function StageTracker({ current, elapsedMs }: { current: number; elapsedMs?: number | undefined }) {
   return (
     <div className="rounded-md border border-border bg-card p-5 shadow-panel">
       {/* Header with elapsed time */}
