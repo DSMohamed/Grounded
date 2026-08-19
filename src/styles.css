@@ -100,6 +100,42 @@
   --refusal-soft: oklch(0.95 0.02 290);
 }
 
+/* ── Dark mode: green clinical terminal aesthetic ───────────────────────── */
+.dark {
+  --background: oklch(0.13 0.015 160);
+  --foreground: oklch(0.92 0.01 150);
+  --paper: oklch(0.16 0.02 160);
+  --rule: oklch(0.24 0.02 160);
+  --card: oklch(0.18 0.02 160);
+  --card-foreground: oklch(0.92 0.01 150);
+  --popover: oklch(0.18 0.02 160);
+  --popover-foreground: oklch(0.92 0.01 150);
+  --primary: oklch(0.65 0.15 168);
+  --primary-foreground: oklch(0.12 0.02 160);
+  --secondary: oklch(0.22 0.025 160);
+  --secondary-foreground: oklch(0.85 0.04 165);
+  --muted: oklch(0.22 0.02 160);
+  --muted-foreground: oklch(0.6 0.03 150);
+  --accent: oklch(0.25 0.04 170);
+  --accent-foreground: oklch(0.85 0.06 168);
+  --destructive: oklch(0.55 0.18 25);
+  --destructive-foreground: oklch(0.98 0.01 95);
+  --border: oklch(0.26 0.025 160);
+  --input: oklch(0.24 0.02 160);
+  --ring: oklch(0.65 0.15 168);
+
+  /* status semantics — brighter for dark bg */
+  --evidence: oklch(0.65 0.15 168);
+  --evidence-foreground: oklch(0.12 0.02 160);
+  --evidence-soft: oklch(0.22 0.05 168);
+  --boundary: oklch(0.65 0.1 75);
+  --boundary-foreground: oklch(0.12 0.02 75);
+  --boundary-soft: oklch(0.22 0.04 80);
+  --refusal: oklch(0.6 0.09 285);
+  --refusal-foreground: oklch(0.12 0.02 285);
+  --refusal-soft: oklch(0.2 0.04 285);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
@@ -111,6 +147,12 @@
     font-family: var(--font-sans);
     background-image:
       linear-gradient(to bottom, oklch(0.42 0.09 168 / 0.04), transparent 220px);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  .dark body {
+    background-image:
+      linear-gradient(to bottom, oklch(0.65 0.15 168 / 0.06), transparent 320px);
   }
 
   h1, h2, h3 {
@@ -126,6 +168,8 @@
   text-transform: uppercase;
 }
 
+/* ── Animations ─────────────────────────────────────────────────────────── */
+
 @keyframes stage-in {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
@@ -135,3 +179,23 @@
   animation: stage-in 0.25s ease-out both;
 }
 
+@keyframes pipeline-particle {
+  0% { transform: translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(calc(100cqw - 8px)); opacity: 0; }
+}
+
+@keyframes gauge-sweep {
+  from { stroke-dashoffset: 100%; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@utility animate-fade-up {
+  animation: fade-up 0.4s ease-out both;
+}

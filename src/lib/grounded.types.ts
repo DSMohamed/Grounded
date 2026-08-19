@@ -1,5 +1,5 @@
 export type Status = "Answered" | "Insufficient Evidence" | "Safety Refusal";
-export type Confidence = "High" | "Medium" | "Low" | "Insufficient Evidence";
+export type Confidence = "High" | "Medium" | "Low" | "Insufficient Evidence" | "N/A";
 export type RiskTier = "Allowed" | "Needs Caution" | "Refuse/Redirect";
 export type DecisionPath =
   | "answered"

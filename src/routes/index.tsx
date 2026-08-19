@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AskConsole, useAskController } from "@/components/grounded/AskConsole";
+import { Database, FileText, Cpu } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -32,6 +34,16 @@ const EXAMPLES = [
 
 function AskPage() {
   const controller = useAskController();
+  const [chunkCount, setChunkCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/health")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && typeof d.chunk_count === "number") setChunkCount(d.chunk_count);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="space-y-10">
@@ -48,6 +60,24 @@ function AskPage() {
           retrieved, the confidence threshold it applied, and refuses when the
           source does not cover your question.
         </p>
+
+        {/* Document scope badge */}
+        <div className="mt-5 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm">
+            <FileText className="size-3.5 text-evidence" />
+            USPSTF Skin Cancer Prevention Counseling
+          </span>
+          {chunkCount !== null && (
+            <span className="inline-flex items-center gap-2 rounded-full border border-evidence/20 bg-evidence-soft px-3.5 py-1.5 font-mono text-[11px] text-evidence">
+              <Database className="size-3.5" />
+              {chunkCount} chunks indexed
+            </span>
+          )}
+          <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3.5 py-1.5 font-mono text-[11px] text-muted-foreground shadow-sm">
+            <Cpu className="size-3.5" />
+            bge-small-en-v1.5 · cosine
+          </span>
+        </div>
       </header>
 
       <AskConsole controller={controller} />

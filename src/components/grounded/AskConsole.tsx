@@ -16,9 +16,15 @@ export function useAskController() {
   const [stage, setStage] = useState(-1);
   const [result, setResult] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const startRef = useRef(0);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+  useEffect(() => () => {
+    timers.current.forEach(clearTimeout);
+    if (tickRef.current) clearInterval(tickRef.current);
+  }, []);
 
   const submit = useCallback(
     async (q: string) => {
@@ -26,10 +32,19 @@ export function useAskController() {
       if (!text) return;
       timers.current.forEach(clearTimeout);
       timers.current = [];
+      if (tickRef.current) clearInterval(tickRef.current);
       setQuestion(text);
       setResult(null);
       setError(null);
       setStage(0);
+      setElapsedMs(0);
+
+      // Start live timer
+      startRef.current = performance.now();
+      tickRef.current = setInterval(() => {
+        setElapsedMs(Math.round(performance.now() - startRef.current));
+      }, 47); // ~21 fps for smooth counting
+
       // stages advance while the single /ask call is in flight; the final
       // stage only resolves when the real response lands.
       [1, 2, 3].forEach((s, i) => {
@@ -56,6 +71,11 @@ export function useAskController() {
           res = await askFn({ data: { question: text } });
         }
 
+        // Stop timer
+        if (tickRef.current) clearInterval(tickRef.current);
+        const finalElapsed = Math.round(performance.now() - startRef.current);
+        setElapsedMs(finalElapsed);
+
         timers.current.forEach(clearTimeout);
         setStage(STAGES.length - 1);
         setTimeout(() => {
@@ -63,6 +83,7 @@ export function useAskController() {
           setResult(res);
         }, 180);
       } catch {
+        if (tickRef.current) clearInterval(tickRef.current);
         timers.current.forEach(clearTimeout);
         setStage(-1);
         setError("The evidence service could not complete this request.");
@@ -71,7 +92,7 @@ export function useAskController() {
     [askFn],
   );
 
-  return { question, setQuestion, stage, result, error, submit };
+  return { question, setQuestion, stage, result, error, elapsedMs, submit };
 }
 
 export function AskConsole({
@@ -81,7 +102,7 @@ export function AskConsole({
   controller: ReturnType<typeof useAskController>;
   showInput?: boolean;
 }) {
-  const { question, setQuestion, stage, result, error, submit } = controller;
+  const { question, setQuestion, stage, result, error, elapsedMs, submit } = controller;
   const [highlighted, setHighlighted] = useState<string | null>(null);
   const running = stage >= 0 && stage < STAGES.length;
 
@@ -130,7 +151,7 @@ export function AskConsole({
         </form>
       )}
 
-      {stage >= 0 && <StageTracker current={stage} />}
+      {stage >= 0 && <StageTracker current={stage} elapsedMs={elapsedMs} />}
 
       {error && (
         <p className="rounded-md border border-destructive/40 bg-destructive/5 px-5 py-4 text-sm text-destructive">
@@ -141,7 +162,7 @@ export function AskConsole({
       {result && (
         <div className="grid gap-8 lg:grid-cols-[1.6fr_1fr]">
           <div className="space-y-6">
-            <ResultHeader result={result} />
+            <ResultHeader result={result} elapsedMs={elapsedMs} />
             {result.status === "Answered" ? (
               <>
                 <div className="rounded-md border border-border bg-paper p-6 shadow-panel">
@@ -189,6 +210,8 @@ export function AskConsole({
             <ConfidenceBadge
               confidence={result.confidence}
               status={result.status}
+              topScore={result.top_score}
+              threshold={result.weak_threshold}
             />
             <EvidencePanel
               chunks={result.retrieved_chunks}
@@ -202,7 +225,7 @@ export function AskConsole({
   );
 }
 
-function ResultHeader({ result }: { result: AskResponse }) {
+function ResultHeader({ result, elapsedMs }: { result: AskResponse; elapsedMs?: number }) {
   const tone =
     result.status === "Answered"
       ? "border-evidence/40 bg-evidence-soft text-evidence"
@@ -221,6 +244,11 @@ function ResultHeader({ result }: { result: AskResponse }) {
         decision_path: {result.decision_path}
       </span>
       <ModeBadge mode={result.mode} />
+      {typeof elapsedMs === "number" && elapsedMs > 0 && (
+        <span className="label-mono rounded-[3px] border border-evidence/30 bg-evidence-soft px-3 py-1.5 font-mono tabular-nums text-evidence">
+          ⚡ {elapsedMs >= 1000 ? `${(elapsedMs / 1000).toFixed(1)}s` : `${elapsedMs}ms`}
+        </span>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 """
 Retrieval using similarity_search_with_relevance_scores.
-Config A: top_k=5, weak_threshold=0.50.
+Config A: top_k=5, weak_threshold=0.5.
 """
 
 from .index import get_vectorstore

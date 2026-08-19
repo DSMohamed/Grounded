@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { GroundedLogo } from "../components/grounded/GroundedLogo";
 import { ModeBadge } from "../components/grounded/ModeBadge";
+import { ThemeToggle } from "../components/grounded/ThemeToggle";
 
 function NotFoundComponent() {
   return (
@@ -156,9 +157,17 @@ function RootComponent() {
                   className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
                   activeProps={{ className: "text-evidence bg-evidence-soft" }}
                 >
-                  Demo mode
+                  Demo
+                </Link>
+                <Link
+                  to="/how-it-works"
+                  className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
+                  activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                >
+                  Architecture
                 </Link>
               </nav>
+              <ThemeToggle />
             </div>
           </div>
         </header>
@@ -182,4 +191,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-

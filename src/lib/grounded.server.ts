@@ -275,7 +275,7 @@ export async function runPipeline(question: string): Promise<AskResponse> {
       recommendation:
         "This question is outside what this evidence-bound assistant will answer.",
       supporting_evidence: [],
-      confidence: "Insufficient Evidence",
+      confidence: "N/A",
       missing_information: reason,
       safety_note:
         "For urgent symptoms seek immediate medical care. For prescribing or diagnostic questions, consult a licensed clinician.",

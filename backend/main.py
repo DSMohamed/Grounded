@@ -157,7 +157,7 @@ def ask_endpoint(req: AskRequest):
                 status="Safety Refusal",
                 recommendation="This question is outside what this evidence-bound assistant will answer.",
                 supporting_evidence=[],
-                confidence="Insufficient Evidence",
+                confidence="N/A",
                 missing_information=risk["reason"],
                 safety_note=(
                     "For urgent symptoms seek immediate medical care. "
