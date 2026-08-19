@@ -219,5 +219,5 @@ grounded-insights/
 ---
 
 ## 👥 Team
-* **Team**: +90 Clutch (*El Safe Refusal*)
+* **Team**: El Safe Refusal
 * **Hackathon**: AI Clinical Decision Support Lite (Wadi AI)
