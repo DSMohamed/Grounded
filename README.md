@@ -220,4 +220,3 @@ grounded-insights/
 
 ## 👥 Team
 * **Team**: El Safe Refusal
-* **Hackathon**: AI Clinical Decision Support Lite (Wadi AI)
