@@ -9,6 +9,7 @@ import { ClaimCard } from "./ClaimCard";
 import { EvidencePanel } from "./EvidencePanel";
 import { ModeBadge } from "./ModeBadge";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/config";
 
 export function useAskController() {
   const askFn = useServerFn(ask);
@@ -54,7 +55,7 @@ export function useAskController() {
         let res: AskResponse | null = null;
         // Try direct browser connection to FastAPI backend first
         try {
-          const apiRes = await fetch("http://127.0.0.1:8000/ask", {
+          const apiRes = await fetch(`${API_BASE_URL}/ask`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: text }),

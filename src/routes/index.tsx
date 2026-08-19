@@ -21,6 +21,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import { Database, FileText, Cpu, PanelLeft, Cloud, EyeOff, ShieldCheck, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { API_BASE_URL } from "@/lib/config";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -132,7 +133,7 @@ function ChatIndexPage() {
 
   // 3. Fetch backend chunk count & status
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/health")
+    fetch(`${API_BASE_URL}/health`)
       .then((r) => r.json())
       .then((d) => {
         if (d && typeof d.chunk_count === "number") setChunkCount(d.chunk_count);
@@ -245,7 +246,7 @@ function ChatIndexPage() {
         try {
           let res: AskResponse | null = null;
           try {
-            const apiRes = await fetch("http://127.0.0.1:8000/ask", {
+            const apiRes = await fetch(`${API_BASE_URL}/ask`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ question: q }),
@@ -370,7 +371,7 @@ function ChatIndexPage() {
       try {
         let res: AskResponse | null = null;
         try {
-          const apiRes = await fetch("http://127.0.0.1:8000/ask", {
+          const apiRes = await fetch(`${API_BASE_URL}/ask`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ question: q }),

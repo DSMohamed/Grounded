@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { API_BASE_URL } from "@/lib/config";
 import {
   FileText,
   Scissors,
@@ -135,7 +136,7 @@ function HowItWorksPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/health")
+    fetch(`${API_BASE_URL}/health`)
       .then((r) => r.json())
       .then((d) => setHealth(d as HealthData))
       .catch(() => { });
