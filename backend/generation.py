@@ -19,8 +19,11 @@ RULES - follow every one exactly:
    doesn't state it, do not state it either.
 3. Every claim in "supporting_evidence" must be paired with a citation that points to one
    of the retrieved chunks below - document, section, page, and chunk ID, exactly as given.
-4. If the evidence does not support a confident answer, set status to
-   "Insufficient Evidence", leave supporting_evidence empty, and explain what is missing.
+4. Answer the question using whatever relevant information the evidence contains. Only set
+   status to "Insufficient Evidence" when the retrieved passages have NO relevant content
+   for the question at all. If the evidence partially answers the question, answer with
+   what it supports and set confidence to "Low" or "Medium" as appropriate. Use
+   "missing_information" to explain what aspects are not covered.
 5. Return JSON matching exactly this structure:
    {
       "status": "Answered" | "Insufficient Evidence" | "Safety Refusal",
@@ -32,8 +35,8 @@ RULES - follow every one exactly:
       "missing_information": "...",
       "safety_note": "Educational information only; not a diagnosis or medical advice."
    }
-6. Never soften or omit a refusal to seem more helpful. Never guess a dosage, threshold,
-   or personalized recommendation.
+6. Never guess a dosage, threshold, or personalized recommendation. Partial answers are
+   better than refusing - just mark them with appropriate confidence.
 7. Respond with the JSON object only - no preamble, no markdown fences, nothing else.
 """
 

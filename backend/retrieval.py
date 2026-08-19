@@ -1,12 +1,12 @@
 """
 Retrieval using similarity_search_with_relevance_scores.
-Config A: top_k=5, weak_threshold from the notebook (0.68).
+Config A: top_k=5, weak_threshold=0.50.
 """
 
 from .index import get_vectorstore
 
 TOP_K = 5
-WEAK_THRESHOLD = 0.68
+WEAK_THRESHOLD = 0.50
 
 
 def retrieve_final(question: str, k: int = TOP_K) -> list[dict]:
