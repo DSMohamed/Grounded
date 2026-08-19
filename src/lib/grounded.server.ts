@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./config";
 import type {
   AskResponse,
   Confidence,
@@ -14,9 +15,9 @@ import type {
  * Falls back to the built-in TypeScript simulation when the backend is unreachable.
  */
 
-const API_BASE = process.env["VITE_API_URL"] || "http://127.0.0.1:8000";
+const API_BASE = API_BASE_URL.replace(/\/+$/, "");
 
-export const WEAK_THRESHOLD = 0.30;
+export const WEAK_THRESHOLD = 0.57;
 export const TOP_K = 5;
 
 const DOC = "USPSTF Skin Cancer Prevention: Behavioral Counseling (2018)";
@@ -233,6 +234,7 @@ export function validateResponse(
 async function callBackendApi(question: string): Promise<AskResponse | null> {
   const urls = [
     `${API_BASE}/ask`,
+    "https://grounded-o09a.onrender.com/ask",
     "http://127.0.0.1:8000/ask",
     "http://localhost:8000/ask",
   ];
