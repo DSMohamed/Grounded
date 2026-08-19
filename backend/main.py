@@ -131,17 +131,19 @@ class HealthResponse(BaseModel):
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
+    has_groq = bool(os.environ.get("GROQ_API_KEY"))
     has_grok = bool(os.environ.get("GROK_API_KEY") or os.environ.get("XAI_API_KEY"))
     has_openrouter = bool(os.environ.get("OPEN_ROUTER_KEY"))
     
-    if has_grok and has_openrouter:
-        mode = "live (grok + openrouter)"
-    elif has_grok:
-        mode = "live (grok)"
-    elif has_openrouter:
-        mode = "live (openrouter)"
-    else:
-        mode = "simulated"
+    providers = []
+    if has_groq:
+        providers.append("groq")
+    if has_grok:
+        providers.append("grok")
+    if has_openrouter:
+        providers.append("openrouter")
+
+    mode = f"live ({' + '.join(providers)})" if providers else "simulated"
 
     return HealthResponse(
         status="ok" if _index_loaded else "degraded",
@@ -158,7 +160,12 @@ def ask_endpoint(req: AskRequest):
     """
     try:
         question = req.question.strip()
-        has_key = bool(os.environ.get("GROK_API_KEY") or os.environ.get("XAI_API_KEY") or os.environ.get("OPEN_ROUTER_KEY"))
+        has_key = bool(
+            os.environ.get("GROQ_API_KEY")
+            or os.environ.get("GROK_API_KEY")
+            or os.environ.get("XAI_API_KEY")
+            or os.environ.get("OPEN_ROUTER_KEY")
+        )
         mode = "live" if has_key else "simulated"
 
         # 1. Classify risk tier

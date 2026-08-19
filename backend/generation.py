@@ -184,30 +184,54 @@ def _parse_llm_json(raw_text: str) -> dict:
     return json.loads(safe_clean, strict=False)
 
 
+
+# ── Provider health cache: skip dead providers for 5 minutes ───────────────
+import time as _time
+
+_provider_failures: dict[str, float] = {}  # provider_name -> timestamp of last failure
+_PROVIDER_COOLDOWN = 300  # seconds (5 min)
+
+
+def _provider_is_healthy(name: str) -> bool:
+    """Check if a provider has NOT failed recently."""
+    last_fail = _provider_failures.get(name)
+    if last_fail is None:
+        return True
+    return (_time.time() - last_fail) > _PROVIDER_COOLDOWN
+
+
+def _mark_provider_failed(name: str):
+    """Mark a provider as temporarily dead."""
+    _provider_failures[name] = _time.time()
+    print(f"[generation] ⚠ Provider '{name}' marked as failed — will skip for {_PROVIDER_COOLDOWN}s")
+
+
 def generate_grounded_answer(
     question: str,
     chunks: list[dict],
 ) -> tuple[dict, str]:
     """
-    Generate a grounded answer using Grok (xAI), OpenRouter, or simulation fallback.
+    Generate a grounded answer using Groq (LPU), Grok (xAI), OpenRouter, or simulation fallback.
     Returns (response_dict, mode) where mode is "live" or "simulated".
+    Dead providers are cached and skipped for 5 minutes to avoid wasting time.
     """
     import requests
 
+    groq_key = os.environ.get("GROQ_API_KEY", "")
     grok_key = os.environ.get("GROK_API_KEY") or os.environ.get("XAI_API_KEY", "")
     openrouter_key = os.environ.get("OPEN_ROUTER_KEY", "")
 
     context = build_context(chunks)
 
-    # ── 1. Try Grok (xAI API) if configured ────────────────────────────────────
-    if grok_key:
-        grok_model = os.environ.get("GROK_MODEL", "grok-2-1212")
-        grok_headers = {
-            "Authorization": f"Bearer {grok_key}",
+    # ── 1. Try Groq (LPU Ultra-Fast Inference) if configured AND healthy ───────
+    if groq_key and _provider_is_healthy("groq"):
+        groq_model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+        groq_headers = {
+            "Authorization": f"Bearer {groq_key}",
             "Content-Type": "application/json",
         }
-        grok_payload = {
-            "model": grok_model,
+        groq_payload = {
+            "model": groq_model,
             "messages": [
                 {"role": "system", "content": DAY3_SYSTEM_PROMPT},
                 {
@@ -217,14 +241,15 @@ def generate_grounded_answer(
             ],
             "max_tokens": 500,
             "temperature": 0,
+            "response_format": {"type": "json_object"},
         }
 
         try:
             r = requests.post(
-                "https://api.x.ai/v1/chat/completions",
-                headers=grok_headers,
-                json=grok_payload,
-                timeout=6.0,
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=groq_headers,
+                json=groq_payload,
+                timeout=4.0,
             )
             if r.status_code == 200:
                 raw = r.json()["choices"][0]["message"]["content"]
@@ -236,14 +261,18 @@ def generate_grounded_answer(
                     if cid in chunk_map:
                         item["passage"] = chunk_map[cid]
 
-                return response, "live"
+                return response, "live (groq)"
             else:
-                print(f"[generation] Grok API returned status {r.status_code} ({r.text[:80]}), trying next provider...")
+                print(f"[generation] Groq API returned status {r.status_code} ({r.text[:80]}), trying next provider...")
+                _mark_provider_failed("groq")
         except Exception as e:
-            print(f"[generation] Grok API error/timeout: {e}. Trying next provider...")
+            print(f"[generation] Groq API error/timeout: {e}. Trying next provider...")
+            _mark_provider_failed("groq")
+    elif groq_key:
+        print("[generation] Skipping Groq (recently failed, in cooldown)")
 
-    # ── 2. Try OpenRouter if configured ────────────────────────────────────────
-    if openrouter_key:
+    # ── 2. Try OpenRouter if configured AND healthy ────────────────────────────
+    if openrouter_key and _provider_is_healthy("openrouter"):
         or_headers = {
             "Authorization": f"Bearer {openrouter_key}",
             "HTTP-Referer": "http://localhost:8080",
@@ -269,7 +298,7 @@ def generate_grounded_answer(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers=or_headers,
                 json=or_payload,
-                timeout=6.0,
+                timeout=4.0,
             )
             if r.status_code == 200:
                 raw = r.json()["choices"][0]["message"]["content"]
@@ -281,11 +310,62 @@ def generate_grounded_answer(
                     if cid in chunk_map:
                         item["passage"] = chunk_map[cid]
 
-                return response, "live"
+                return response, "live (openrouter)"
             else:
-                print(f"[generation] OpenRouter returned status {r.status_code} ({r.text[:80]}), falling back to simulation.")
+                print(f"[generation] OpenRouter returned status {r.status_code} ({r.text[:80]}), trying next provider...")
+                _mark_provider_failed("openrouter")
         except Exception as e:
-            print(f"[generation] OpenRouter error/timeout: {e}, falling back to simulation.")
+            print(f"[generation] OpenRouter error/timeout: {e}, trying next provider...")
+            _mark_provider_failed("openrouter")
+    elif openrouter_key:
+        print("[generation] Skipping OpenRouter (recently failed, in cooldown)")
 
-    # ── 3. Fallback: Instant Deterministic Grounded Simulation ─────────────────
+    # ── 3. Try Grok (xAI API) if configured AND healthy ────────────────────────
+    if grok_key and _provider_is_healthy("grok"):
+        grok_model = os.environ.get("GROK_MODEL", "grok-2-1212")
+        grok_headers = {
+            "Authorization": f"Bearer {grok_key}",
+            "Content-Type": "application/json",
+        }
+        grok_payload = {
+            "model": grok_model,
+            "messages": [
+                {"role": "system", "content": DAY3_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": f"Evidence:\n{context}\n\nQuestion: {question}\n\nRespond with the JSON object only.",
+                },
+            ],
+            "max_tokens": 500,
+            "temperature": 0,
+        }
+
+        try:
+            r = requests.post(
+                "https://api.x.ai/v1/chat/completions",
+                headers=grok_headers,
+                json=grok_payload,
+                timeout=4.0,
+            )
+            if r.status_code == 200:
+                raw = r.json()["choices"][0]["message"]["content"]
+                response = _parse_llm_json(raw)
+
+                chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
+                for item in response.get("supporting_evidence", []):
+                    cid = item.get("citation", {}).get("chunk_id", "")
+                    if cid in chunk_map:
+                        item["passage"] = chunk_map[cid]
+
+                return response, "live (grok)"
+            else:
+                print(f"[generation] Grok API returned status {r.status_code} ({r.text[:80]}), falling back to simulation.")
+                _mark_provider_failed("grok")
+        except Exception as e:
+            print(f"[generation] Grok API error/timeout: {e}. Falling back to simulation...")
+            _mark_provider_failed("grok")
+    elif grok_key:
+        print("[generation] Skipping Grok (recently failed, in cooldown)")
+
+    # ── 4. Fallback: Instant Deterministic Grounded Simulation ─────────────────
     return _simulate_llm_response(question, chunks), "simulated"
