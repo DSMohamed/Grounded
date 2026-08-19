@@ -1,7 +1,7 @@
 import os
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
 from reportlab.lib import colors
 
 pdf_filename = "skin-cancer-screening-final-recommendation.pdf"
@@ -18,119 +18,138 @@ styles = getSampleStyleSheet()
 title_style = ParagraphStyle(
     "DocTitle",
     parent=styles["Heading1"],
-    fontSize=18,
-    leading=22,
+    fontSize=16,
+    leading=20,
     textColor=colors.HexColor("#1e293b"),
-    spaceAfter=12,
+    spaceAfter=10,
 )
 h1_style = ParagraphStyle(
     "SectionHeading",
     parent=styles["Heading2"],
-    fontSize=13,
-    leading=16,
+    fontSize=12,
+    leading=15,
     textColor=colors.HexColor("#0f766e"),
-    spaceBefore=14,
-    spaceAfter=8,
+    spaceBefore=12,
+    spaceAfter=6,
 )
 body_style = ParagraphStyle(
     "BodyText",
     parent=styles["Normal"],
-    fontSize=10,
-    leading=14,
+    fontSize=9.5,
+    leading=13.5,
     textColor=colors.HexColor("#334155"),
-    spaceAfter=8,
+    spaceAfter=6,
 )
 
 story = []
 
-# Title
-story.append(Paragraph("US Preventive Services Task Force Recommendation Statement", body_style))
-story.append(Paragraph("Screening for Skin Cancer in Adolescents and Adults: US Preventive Services Task Force Recommendation Statement", title_style))
-story.append(Paragraph("<b>Source:</b> U.S. Preventive Services Task Force (USPSTF 2023) | JAMA Clinical Recommendation", body_style))
-story.append(Spacer(1, 14))
-
 # Page 1: Abstract & Recommendation Summary
-story.append(Paragraph("Abstract & Recommendation Summary", h1_style))
+story.append(Paragraph("US Preventive Services Task Force Recommendation Statement (2023)", body_style))
+story.append(Paragraph("Screening for Skin Cancer in Adolescents and Adults: US Preventive Services Task Force Recommendation Statement", title_style))
+story.append(Paragraph("<b>Source:</b> U.S. Preventive Services Task Force (USPSTF 2023) | JAMA Clinical Guidelines Publication", body_style))
+story.append(Spacer(1, 10))
+
+story.append(Paragraph("Abstract & Screening Recommendation Summary", h1_style))
 story.append(Paragraph(
-    "<b>Importance:</b> Skin cancer is the most commonly diagnosed cancer in the United States. Although melanoma accounts for only about 1% of all skin cancers, it is responsible for the vast majority of skin cancer deaths. Basal cell carcinoma and squamous cell carcinoma are the most common nonmelanoma skin cancers, which are rarely fatal but can cause substantial morbidity.",
+    "<b>Importance:</b> Skin cancer is the most commonly diagnosed malignancy in the United States. Although melanoma accounts for approximately 1% of all skin cancers, it is responsible for over 80% of all skin cancer deaths. Basal cell carcinoma (BCC) and squamous cell carcinoma (SCC) constitute nonmelanoma skin cancer (NMSC); they rarely metastasize but contribute significantly to health care morbidity and cosmetic impairment.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Objective:</b> To update the 2016 US Preventive Services Task Force (USPSTF) recommendation on screening for skin cancer in asymptomatic adolescents and adults.",
+    "<b>Target Population:</b> This recommendation applies to asymptomatic adolescents and adults aged 15 years or older without a personal history of premalignant or malignant skin lesions and who are not under active dermatologic surveillance for suspicious skin spots.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Population:</b> This recommendation applies to asymptomatic adolescents and adults aged 15 years or older who do not have a personal history of premalignant or malignant skin lesions and are not under active surveillance or reporting suspicious skin spots.",
+    "<b>Primary Recommendation:</b> The USPSTF concludes that the current evidence is <b>insufficient</b> to assess the balance of benefits and harms of visual skin examination by a clinician to screen for skin cancer in asymptomatic adolescents and adults. <b>(Grade: I statement)</b>",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Recommendation:</b> The USPSTF concludes that the current evidence is <b>insufficient</b> to assess the balance of benefits and harms of visual skin examination by a clinician to screen for skin cancer in asymptomatic adolescents and adults. <b>(Grade: I statement)</b>",
+    "<b>Distinction from Behavioral Counseling:</b> Primary care clinicians should distinguish skin cancer screening (visual clinician examination of asymptomatic individuals) from behavioral counseling. Behavioral counseling to minimize ultraviolet (UV) exposure remains strongly recommended for fair-skinned individuals aged 6 months to 24 years (Grade B).",
     body_style
 ))
 story.append(PageBreak())
 
-# Page 2: Summary of Recommendations and Evidence
-story.append(Paragraph("Summary of Recommendations and Evidence", h1_style))
+# Page 2: Clinical Considerations & Risk Factors
+story.append(Paragraph("Clinical Considerations & Patient Risk Assessment", h1_style))
 story.append(Paragraph(
-    "<b>Assessment of Magnitude of Net Benefit:</b> The USPSTF found inadequate evidence that visual skin examination by a clinician to screen for skin cancer in asymptomatic adolescents and adults reduces morbidity or mortality from melanoma or keratinocyte carcinoma.",
+    "<b>Assessment of Risk:</b> Primary risk factors for skin cancer include fair skin phototypes (Fitzpatrick skin types I and II), red or blond hair, light eye color, tendency to sunburn rather than tan, freckles, extensive lifetime UV exposure, history of severe or blistering sunburns during childhood/adolescence, indoor tanning use, and immunosuppression (such as solid organ transplant recipients).",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Evidence on Screening Accuracy:</b> Visual examination by dermatologists and primary care clinicians has variable sensitivity and specificity for detecting melanoma and nonmelanoma skin cancers. While dermoscopy and digital monitoring technologies can improve diagnostic accuracy in specialized dermatology settings, evidence regarding their routine application during primary care screening remains limited.",
+    "<b>Nevus Density and Dysplastic Nevi:</b> Having a high total count of benign melanocytic nevi (>50 to 100 nevi) or the presence of atypical (dysplastic) nevi confers a substantially elevated relative risk of cutaneous malignant melanoma.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Balance of Benefits and Harms:</b> The USPSTF determined that the overall net benefit of clinical visual skin screening cannot be determined due to the lack of direct trial evidence linking universal routine screening to reduced all-cause or disease-specific mortality.",
-    body_style
-))
-story.append(PageBreak())
-
-# Page 3: Rationale - Assessment of Benefits and Harms
-story.append(Paragraph("Rationale - Benefits and Harms of Screening", h1_style))
-story.append(Paragraph(
-    "<b>Potential Benefits:</b> Early detection of thin melanomas (Breslow thickness <1 mm) is associated with 5-year survival rates exceeding 95%. However, population-level screening studies (such as the German SCREEN project) have yielded conflicting long-term evidence regarding sustained reductions in melanoma mortality.",
+    "<b>Genetic and Familial Factors:</b> A family history of melanoma in a first-degree relative or known hereditary melanoma syndromes (e.g., mutations in CDKN2A or CDK4) significantly increases melanoma susceptibility.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Potential Harms of Screening:</b> The primary harms of visual skin screening include diagnostic skin biopsies of benign lesions, procedure-related scarring, pain, infection, localized bleeding, patient anxiety, and overdiagnosis of indolent, nonlethal lesions that would never have caused clinical harm during the patient's lifetime.",
-    body_style
-))
-story.append(Paragraph(
-    "<b>Biopsy Burden:</b> Studies estimate that for every confirmed melanoma identified through population visual screening, between 20 and 50 benign lesions are surgically biopsied or excised.",
+    "<b>Screening Tests Evaluated:</b> Visual skin examination involves inspection of the entire integumentary surface (Total Body Skin Examination or TBSE) by a primary care physician, dermatologist, or trained nurse practitioner. Adjunctive diagnostic modalities evaluated include dermoscopy (epiluminescence microscopy) and automated digital photographic surveillance.",
     body_style
 ))
 story.append(PageBreak())
 
-# Page 4: Clinical Considerations - Risk Assessment & High-Risk Groups
-story.append(Paragraph("Clinical Considerations - Risk Assessment", h1_style))
+# Page 3: Rationale - Benefits and Harms of Screening
+story.append(Paragraph("Rationale: Evidence on Benefits and Harms of Screening", h1_style))
 story.append(Paragraph(
-    "<b>Risk Factors:</b> Although routine screening is not recommended for asymptomatic average-risk populations, clinicians should remain alert to suspicious lesions during physical exams. Established risk factors for melanoma include fair skin types (Fitzpatrick types I and II), red or blond hair, blue or green eyes, freckling, older age, male sex, excessive ultraviolet (UV) radiation exposure, severe blistering sunburns, family history of melanoma in a first-degree relative, and presence of atypical or large numbers of melanocytic nevi (>50 moles).",
+    "<b>Detection of Early-Stage Lesions:</b> While clinical visual examination can detect skin cancers at earlier stages (such as melanoma in situ or thin invasive melanoma <1 mm Breslow thickness), evidence is lacking regarding whether routine screening reduces all-cause mortality, melanoma-specific mortality, or disease morbidity in asymptomatic general populations.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>ABCDE Criteria:</b> Clinicians and patients should evaluate suspicious pigmented lesions using the ABCDE rule: Asymmetry, Border irregularity, Color variation, Diameter greater than 6 mm, and Evolution (changes in size, shape, or shade over time).",
+    "<b>Overdiagnosis and Overtreatment:</b> A major concern identified by the USPSTF is overdiagnosis—the histologic identification and surgical excision of indolent, slow-growing, or biologically non-aggressive melanocytic or keratinocyte lesions that would never have caused clinical harm or symptoms during the patient's lifetime.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Patient-Reported Lesions:</b> The 'I' statement does NOT apply to patients who present to their doctor reporting a concerning, changing, itchy, or bleeding mole. Such patients require prompt targeted clinical and dermatological evaluation.",
+    "<b>Potential Harms of Screening:</b> Direct harms of visual screening include cosmetic scarring from diagnostic skin biopsies, wound infection, bleeding, unnecessary specialty referrals, financial burden, and psychological anxiety stemming from false-positive evaluations.",
+    body_style
+))
+story.append(Paragraph(
+    "<b>Diagnostic Accuracy:</b> Across primary care settings, clinician visual skin inspection demonstrates variable sensitivity (40% to 90%) and specificity (70% to 95%) for melanoma detection, with lower diagnostic accuracy observed among non-dermatologist primary care clinicians compared to specialized dermatologists.",
     body_style
 ))
 story.append(PageBreak())
 
-# Page 5: Implementation, Patient Counseling & Research Needs
-story.append(Paragraph("Implementation and Research Needs", h1_style))
+# Page 4: Patient Evaluation & Suspicious Lesions
+story.append(Paragraph("Evaluation of Suspicious Lesions & Clinical Practice", h1_style))
 story.append(Paragraph(
-    "<b>Primary Care Practice Guidance:</b> In the absence of definitive screening evidence, primary care physicians should exercise clinical judgment when deciding whether to perform full-body skin examinations, particularly in older white men and patients with significant sun-damage history.",
+    "<b>The ABCDE Criteria for Melanoma:</b> Clinicians and patients should remain vigilant for clinical signs of suspicious pigmented lesions using the validated ABCDE checklist:",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Relationship to Behavioral Counseling:</b> Clinicians should continue to follow the separate USPSTF 2018 recommendation on behavioral counseling, which advises counseling fair-skinned youth aged 6 months to 24 years on sun-protective habits and UV avoidance (Grade B recommendation).",
+    "• <b>A (Asymmetry):</b> One half of the lesion does not match the other half in contour or architecture.<br/>"
+    "• <b>B (Border):</b> Edges are irregular, scalloped, ragged, or poorly circumscribed.<br/>"
+    "• <b>C (Color variation):</b> Non-uniform pigmentation with shades of tan, brown, black, white, red, or blue.<br/>"
+    "• <b>D (Diameter):</b> Lesions greater than 6 mm (pencil eraser size), although melanomas can present smaller.<br/>"
+    "• <b>E (Evolving):</b> Any lesion that changes in size, shape, color, elevation, or causes new pruritus/bleeding.",
     body_style
 ))
 story.append(Paragraph(
-    "<b>Research Needs:</b> High-priority research needs include well-designed randomized clinical trials evaluating visual screening's effect on melanoma-specific mortality, validated risk-stratification models to identify high-risk subgroups who benefit from targeted screening, and prospective studies measuring the rate and consequences of skin cancer overdiagnosis.",
+    "<b>The Ugly Duckling Sign:</b> Lesions that appear morphologically distinct or outlier compared to a patient's surrounding baseline nevi warrant dedicated diagnostic assessment and prompt histologic biopsy.",
+    body_style
+))
+story.append(Paragraph(
+    "<b>Symptomatic vs Asymptomatic Presentation:</b> The USPSTF Grade I statement applies solely to asymptomatic universal screening. Any patient presenting with an actively changing, symptomatic, ulcerating, bleeding, or clinically suspicious skin lesion must undergo immediate targeted diagnostic biopsy and histological evaluation.",
+    body_style
+))
+story.append(PageBreak())
+
+# Page 5: Implementation and Research Gaps
+story.append(Paragraph("Implementation Considerations & Future Research Gaps", h1_style))
+story.append(Paragraph(
+    "<b>Research Needs:</b> Randomized clinical trials or high-quality prospective cohort studies are urgently needed to assess whether routine clinician visual skin screening or digital dermoscopic imaging reduces melanoma mortality.",
+    body_style
+))
+story.append(Paragraph(
+    "<b>Risk Stratification Algorithms:</b> Validated multivariable risk-prediction models are required to identify enriched sub-populations of exceptionally high-risk patients who might derive a favorable net benefit from structured surveillance.",
+    body_style
+))
+story.append(Paragraph(
+    "<b>Artificial Intelligence and Digital Dermoscopy:</b> Computer-assisted diagnostic algorithms and mobile teledermatology applications require standardized clinical validation before integration into routine primary care screening workflows.",
+    body_style
+))
+story.append(Paragraph(
+    "<b>Summary for Clinicians:</b> Clinicians should remain alert for suspicious skin lesions during routine physical examinations, counsel patients with fair skin phototypes on sun protection behaviors, and exercise clinical judgment when assessing individual patient risk factors and preferences.",
     body_style
 ))
 
 doc.build(story)
-print(f"Generated {pdf_filename} successfully!")
+print(f"Generated comprehensive {pdf_filename}")
