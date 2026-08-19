@@ -11,7 +11,16 @@ import { GroundedLogo } from "@/components/grounded/GroundedLogo";
 import { ModeBadge } from "@/components/grounded/ModeBadge";
 import { ThemeToggle } from "@/components/grounded/ThemeToggle";
 import { STAGES } from "@/components/grounded/StageTracker";
-import { Database, FileText, Cpu, PanelLeft, Sparkles } from "lucide-react";
+import {
+  supabase,
+  isSupabaseConfigured,
+  fetchCloudConversations,
+  syncConversationToCloud,
+  deleteCloudConversation,
+} from "@/lib/supabase";
+import type { User } from "@supabase/supabase-js";
+import { Database, FileText, Cpu, PanelLeft, Cloud, EyeOff, ShieldCheck, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -31,12 +40,22 @@ export const Route = createFileRoute("/")({
   component: ChatIndexPage,
 });
 
-const STORAGE_KEY = "grounded_chat_conversations_v1";
+/* ── Isolated Storage Helpers ────────────────────────────────────────────── */
 
-function loadSavedConversations(): Conversation[] {
+function getStorageKey(userId?: string | null): string {
+  return userId ? `grounded_chat_user_${userId}` : `grounded_chat_guest_v1`;
+}
+
+function loadSavedConversations(userId?: string | null): Conversation[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    // Clear old un-isolated legacy storage key if present
+    if (localStorage.getItem("grounded_chat_conversations_v1")) {
+      localStorage.removeItem("grounded_chat_conversations_v1");
+    }
+
+    const key = getStorageKey(userId);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
@@ -45,10 +64,11 @@ function loadSavedConversations(): Conversation[] {
   }
 }
 
-function saveConversations(convos: Conversation[]) {
+function saveConversations(convos: Conversation[], userId?: string | null) {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(convos.slice(0, 30)));
+    const key = getStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(convos.slice(0, 30)));
   } catch (e) {
     console.error("Failed to save conversations:", e);
   }
@@ -56,23 +76,60 @@ function saveConversations(convos: Conversation[]) {
 
 function ChatIndexPage() {
   const askFn = useServerFn(ask);
+  const [user, setUser] = useState<User | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [chunkCount, setChunkCount] = useState<number | null>(null);
+
+  // Temporary chat state (in-memory only, never saved)
+  const [isTemporaryChat, setIsTemporaryChat] = useState(false);
+  const [tempMessages, setTempMessages] = useState<ChatMessageType[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load conversations on mount
+  // 1. Supabase Auth state listener
   useEffect(() => {
-    const saved = loadSavedConversations();
-    setConversations(saved);
-    if (saved.length > 0 && saved[0]) {
-      setActiveId(saved[0].id);
-    }
+    if (!supabase) return;
+
+    // Get current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    // Listen to changes (sign in, sign out)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch backend chunk count & status
+  // 2. Load conversations whenever user changes
+  useEffect(() => {
+    if (user && isSupabaseConfigured) {
+      // Logged in: Fetch exclusively from Supabase Cloud
+      fetchCloudConversations(user.id).then((cloudConvos) => {
+        if (cloudConvos.length > 0) {
+          setConversations(cloudConvos);
+          if (cloudConvos[0]) setActiveId(cloudConvos[0].id);
+        } else {
+          // Check user-isolated local cache
+          const userSaved = loadSavedConversations(user.id);
+          setConversations(userSaved);
+          if (userSaved.length > 0 && userSaved[0]) setActiveId(userSaved[0].id);
+        }
+      });
+    } else {
+      // Guest / Logged out: Load isolated guest conversations ONLY
+      const guestSaved = loadSavedConversations(null);
+      setConversations(guestSaved);
+      setActiveId(guestSaved.length > 0 && guestSaved[0] ? guestSaved[0].id : null);
+    }
+  }, [user]);
+
+  // 3. Fetch backend chunk count & status
   useEffect(() => {
     fetch("http://127.0.0.1:8000/health")
       .then((r) => r.json())
@@ -82,24 +139,61 @@ function ChatIndexPage() {
       .catch(() => {});
   }, []);
 
-  const activeConversation = conversations.find((c) => c.id === activeId) || null;
+  const activeConversation = isTemporaryChat
+    ? null
+    : conversations.find((c) => c.id === activeId) || null;
+
+  const currentDisplayMessages: ChatMessageType[] = isTemporaryChat
+    ? tempMessages
+    : activeConversation?.messages || [];
 
   // Auto scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeConversation?.messages, activeConversation?.messages?.length]);
+  }, [currentDisplayMessages.length]);
 
   const handleNewChat = useCallback(() => {
-    setActiveId(null);
+    if (isTemporaryChat) {
+      setTempMessages([]);
+    } else {
+      setActiveId(null);
+    }
+  }, [isTemporaryChat]);
+
+  const handleToggleTemporaryChat = useCallback(() => {
+    setIsTemporaryChat((prev) => {
+      const next = !prev;
+      if (next) {
+        // Reset temp messages on activating temporary chat
+        setTempMessages([]);
+      }
+      return next;
+    });
   }, []);
 
   const handleDeleteChat = useCallback((id: string) => {
     setConversations((prev) => {
       const updated = prev.filter((c) => c.id !== id);
-      saveConversations(updated);
+      saveConversations(updated, user?.id);
       return updated;
     });
+
+    if (user && isSupabaseConfigured) {
+      deleteCloudConversation(id, user.id);
+    }
+
     setActiveId((curr) => (curr === id ? null : curr));
+  }, [user]);
+
+  const handleSignOut = useCallback(async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+      setUser(null);
+      // Immediately reset conversations to isolated guest storage
+      const guestSaved = loadSavedConversations(null);
+      setConversations(guestSaved);
+      setActiveId(guestSaved[0]?.id ?? null);
+    }
   }, []);
 
   const handleSubmit = useCallback(
@@ -128,11 +222,82 @@ function ChatIndexPage() {
         timestamp: Date.now(),
       };
 
+      // ── Scenario A: Temporary Chat (No DB / No LocalStorage) ───────────────────
+      if (isTemporaryChat) {
+        setTempMessages((prev) => [...prev, userMsg, initialAsstMsg]);
+
+        const tempInterval = setInterval(() => {
+          const elapsed = Math.round(performance.now() - startTime);
+          setTempMessages((prev) =>
+            prev.map((m) => (m.id === asstMsgId ? { ...m, elapsedMs: elapsed } : m))
+          );
+        }, 50);
+
+        const tempStageTimeouts = [1, 2, 3].map((s, i) =>
+          setTimeout(() => {
+            setTempMessages((prev) =>
+              prev.map((m) => (m.id === asstMsgId ? { ...m, stage: s } : m))
+            );
+          }, 250 * (i + 1))
+        );
+
+        try {
+          let res: AskResponse | null = null;
+          try {
+            const apiRes = await fetch("http://127.0.0.1:8000/ask", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ question: q }),
+              signal: AbortSignal.timeout(30000),
+            });
+            if (apiRes.ok) res = (await apiRes.json()) as AskResponse;
+          } catch {}
+
+          if (!res) res = await askFn({ data: { question: q } });
+
+          clearInterval(tempInterval);
+          tempStageTimeouts.forEach(clearTimeout);
+          const finalElapsed = Math.round(performance.now() - startTime);
+
+          setTempMessages((prev) =>
+            prev.map((m) =>
+              m.id === asstMsgId
+                ? {
+                    ...m,
+                    stage: STAGES.length,
+                    elapsedMs: finalElapsed,
+                    response: res ?? undefined,
+                    content: res?.recommendation || "Unable to generate answer.",
+                  }
+                : m
+            )
+          );
+        } catch {
+          clearInterval(tempInterval);
+          tempStageTimeouts.forEach(clearTimeout);
+          setTempMessages((prev) =>
+            prev.map((m) =>
+              m.id === asstMsgId
+                ? {
+                    ...m,
+                    stage: -1,
+                    elapsedMs: Math.round(performance.now() - startTime),
+                    content: "The evidence service encountered an error processing this query.",
+                  }
+                : m
+            )
+          );
+        } finally {
+          setIsProcessing(false);
+        }
+        return;
+      }
+
+      // ── Scenario B: Standard Chat (Persisted to Cloud or Isolated Local) ───────
       let currentConvoId = activeId;
       let targetConvo: Conversation;
 
       if (!currentConvoId) {
-        // Create new conversation
         const newId = `convo_${Date.now()}`;
         currentConvoId = newId;
         const title = q.length > 45 ? `${q.slice(0, 42)}...` : q;
@@ -145,7 +310,7 @@ function ChatIndexPage() {
         };
         setConversations((prev) => {
           const next = [targetConvo, ...prev];
-          saveConversations(next);
+          saveConversations(next, user?.id);
           return next;
         });
         setActiveId(newId);
@@ -161,12 +326,11 @@ function ChatIndexPage() {
             }
             return c;
           });
-          saveConversations(next);
+          saveConversations(next, user?.id);
           return next;
         });
       }
 
-      // Timer & stage progression
       const interval = setInterval(() => {
         const elapsed = Math.round(performance.now() - startTime);
         setConversations((prev) =>
@@ -211,16 +375,10 @@ function ChatIndexPage() {
             body: JSON.stringify({ question: q }),
             signal: AbortSignal.timeout(30000),
           });
-          if (apiRes.ok) {
-            res = (await apiRes.json()) as AskResponse;
-          }
-        } catch {
-          // fallback to SSR server function
-        }
+          if (apiRes.ok) res = (await apiRes.json()) as AskResponse;
+        } catch {}
 
-        if (!res) {
-          res = await askFn({ data: { question: q } });
-        }
+        if (!res) res = await askFn({ data: { question: q } });
 
         clearInterval(interval);
         stageTimeouts.forEach(clearTimeout);
@@ -229,7 +387,7 @@ function ChatIndexPage() {
         setConversations((prev) => {
           const next = prev.map((c) => {
             if (c.id === currentConvoId) {
-              return {
+              const updatedConvo: Conversation = {
                 ...c,
                 messages: c.messages.map((m) => {
                   if (m.id === asstMsgId) {
@@ -245,13 +403,20 @@ function ChatIndexPage() {
                 }),
                 updatedAt: Date.now(),
               };
+
+              // Sync to Supabase cloud if user is logged in
+              if (user && isSupabaseConfigured) {
+                syncConversationToCloud(updatedConvo, user.id);
+              }
+
+              return updatedConvo;
             }
             return c;
           });
-          saveConversations(next);
+          saveConversations(next, user?.id);
           return next;
         });
-      } catch (err) {
+      } catch {
         clearInterval(interval);
         stageTimeouts.forEach(clearTimeout);
         const finalElapsed = Math.round(performance.now() - startTime);
@@ -277,14 +442,14 @@ function ChatIndexPage() {
             }
             return c;
           });
-          saveConversations(next);
+          saveConversations(next, user?.id);
           return next;
         });
       } finally {
         setIsProcessing(false);
       }
     },
-    [activeId, isProcessing, askFn]
+    [activeId, isProcessing, askFn, user, isTemporaryChat]
   );
 
   return (
@@ -293,9 +458,16 @@ function ChatIndexPage() {
       <ChatSidebar
         conversations={conversations}
         activeId={activeId}
+        user={user}
+        isTemporaryChat={isTemporaryChat}
         onNew={handleNewChat}
-        onSelect={(id) => setActiveId(id)}
+        onSelect={(id) => {
+          setIsTemporaryChat(false);
+          setActiveId(id);
+        }}
         onDelete={handleDeleteChat}
+        onSignOut={handleSignOut}
+        onToggleTemporaryChat={handleToggleTemporaryChat}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
@@ -316,7 +488,11 @@ function ChatIndexPage() {
             )}
             <div className="flex items-center gap-2">
               <span className="font-serif text-sm font-semibold text-foreground">
-                {activeConversation ? activeConversation.title : "New Consultation"}
+                {isTemporaryChat
+                  ? "Temporary Consultation"
+                  : activeConversation
+                    ? activeConversation.title
+                    : "New Consultation"}
               </span>
               <span className="label-mono text-[10px] text-muted-foreground/60 hidden sm:inline">
                 · USPSTF guideline bound
@@ -325,6 +501,17 @@ function ChatIndexPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            {isTemporaryChat ? (
+              <span className="inline-flex items-center gap-1 font-mono text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded-full px-2.5 py-1 font-medium">
+                <EyeOff className="size-3" /> Temporary Mode
+              </span>
+            ) : (
+              user && (
+                <span className="hidden sm:inline-flex items-center gap-1 font-mono text-[10px] text-evidence bg-evidence/10 border border-evidence/20 rounded-full px-2.5 py-1">
+                  <Cloud className="size-3" /> Cloud Synced
+                </span>
+              )
+            )}
             <ModeBadge />
             <div className="hidden sm:flex items-center gap-1 border-l border-border/40 pl-3">
               <Link
@@ -344,9 +531,27 @@ function ChatIndexPage() {
           </div>
         </header>
 
+        {/* Temporary Chat Notice Banner */}
+        {isTemporaryChat && (
+          <div className="flex items-center justify-between border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-xs text-amber-800 dark:text-amber-300">
+            <div className="flex items-center gap-2">
+              <EyeOff className="size-4 shrink-0" />
+              <span>
+                <strong>Temporary Chat Active:</strong> Messages won't appear in history, won't be saved to the database, and will disappear on refresh.
+              </span>
+            </div>
+            <button
+              onClick={() => setIsTemporaryChat(false)}
+              className="ml-2 font-mono text-[10px] uppercase tracking-wider text-amber-900 dark:text-amber-200 underline hover:no-underline"
+            >
+              Exit
+            </button>
+          </div>
+        )}
+
         {/* Chat message stream or Empty State */}
         <div className="flex-1 overflow-y-auto px-4 py-6">
-          {!activeConversation || activeConversation.messages.length === 0 ? (
+          {currentDisplayMessages.length === 0 ? (
             /* Empty State: ChatGPT Hero + Starter Prompts */
             <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center text-center">
               <div className="flex size-14 items-center justify-center rounded-2xl bg-evidence/15 border border-evidence/30 shadow-lg mb-6">
@@ -354,10 +559,12 @@ function ChatIndexPage() {
               </div>
 
               <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
-                Grounded Clinical Intelligence
+                {isTemporaryChat ? "Temporary Consultation" : "Grounded Clinical Intelligence"}
               </h1>
               <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-                Ask behavioral counseling and prevention questions strictly bound to verified USPSTF guideline evidence. Every claim carries an inspectable citation.
+                {isTemporaryChat
+                  ? "This consultation is private and ephemeral. It will not be stored in your history or saved to the cloud."
+                  : "Ask behavioral counseling and prevention questions strictly bound to verified USPSTF guideline evidence. Every claim carries an inspectable citation."}
               </p>
 
               {/* Document scope badges */}
@@ -378,7 +585,7 @@ function ChatIndexPage() {
                 </span>
               </div>
 
-              {/* Starter Prompts Grid (ChatGPT style) */}
+              {/* Starter Prompts Grid */}
               <div className="mt-10 grid w-full max-w-2xl grid-cols-1 sm:grid-cols-2 gap-3">
                 {STARTER_PROMPTS.map((p) => (
                   <button
@@ -403,7 +610,7 @@ function ChatIndexPage() {
           ) : (
             /* Active Conversation Messages */
             <div className="mx-auto max-w-3xl space-y-6">
-              {activeConversation.messages.map((m) => (
+              {currentDisplayMessages.map((m) => (
                 <ChatMessage key={m.id} message={m} />
               ))}
               <div ref={messagesEndRef} />

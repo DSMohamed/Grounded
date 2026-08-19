@@ -174,6 +174,12 @@ function RootComponent() {
                   >
                     Architecture
                   </Link>
+                  <Link
+                    to="/auth"
+                    className="label-mono rounded-[3px] px-3 py-2 text-evidence transition-colors hover:bg-evidence/10"
+                  >
+                    Sign In
+                  </Link>
                 </nav>
                 <ThemeToggle />
               </div>
