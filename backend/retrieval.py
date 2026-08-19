@@ -6,7 +6,7 @@ Config A: top_k=5, weak_threshold=0.5.
 from .index import get_vectorstore
 
 TOP_K = 5
-WEAK_THRESHOLD = 0.50
+WEAK_THRESHOLD = 0.57
 
 
 def retrieve_final(question: str, k: int = TOP_K) -> list[dict]:

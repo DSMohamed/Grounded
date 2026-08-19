@@ -1,10 +1,9 @@
-import { Plus, MessageSquare, Trash2, LogIn, LogOut, User as UserIcon, Cloud, EyeOff } from "lucide-react";
+import { Plus, MessageSquare, Trash2, LogIn, LogOut, User as UserIcon, Cloud, EyeOff, X } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Conversation } from "@/lib/grounded.types";
 import { GroundedLogo } from "./GroundedLogo";
 import { ThemeToggle } from "./ThemeToggle";
 import { ModeBadge } from "./ModeBadge";
-import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import type { User } from "@supabase/supabase-js";
 
@@ -20,6 +19,8 @@ interface ChatSidebarProps {
   onToggleTemporaryChat?: () => void;
   collapsed?: boolean;
   onToggle?: () => void;
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 }
 
 export function ChatSidebar({
@@ -34,6 +35,8 @@ export function ChatSidebar({
   onToggleTemporaryChat,
   collapsed,
   onToggle,
+  mobileOpen,
+  onCloseMobile,
 }: ChatSidebarProps) {
   // Group conversations by time
   const now = Date.now();
@@ -42,49 +45,18 @@ export function ChatSidebar({
   const week = conversations.filter((c) => now - c.updatedAt >= dayMs && now - c.updatedAt < 7 * dayMs);
   const older = conversations.filter((c) => now - c.updatedAt >= 7 * dayMs);
 
-  if (collapsed) {
-    return (
-      <aside className="flex w-16 flex-col items-center border-r border-border/40 bg-[var(--sidebar-bg)] py-4">
-        <button
-          onClick={onToggle}
-          className="mb-4 flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/20 hover:text-foreground"
-        >
-          <MessageSquare className="size-5" />
-        </button>
-        <button
-          onClick={onNew}
-          title="New conversation"
-          className="mb-2 flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-evidence/10 hover:text-evidence"
-        >
-          <Plus className="size-5" />
-        </button>
-        <button
-          onClick={onToggleTemporaryChat}
-          title="Temporary Chat"
-          className={cn(
-            "flex size-10 items-center justify-center rounded-lg transition-colors",
-            isTemporaryChat
-              ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
-              : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
-          )}
-        >
-          <EyeOff className="size-4" />
-        </button>
-      </aside>
-    );
-  }
-
-  return (
-    <aside className="flex w-64 flex-col border-r border-border/40 bg-[var(--sidebar-bg)]">
+  const sidebarContent = (
+    <div className="flex h-full w-64 flex-col border-r border-border/40 bg-[var(--sidebar-bg)]">
       {/* Header */}
       <div className="flex items-center gap-2 border-b border-border/30 px-4 py-3.5">
         <GroundedLogo className="size-5 text-evidence" />
         <span className="font-serif text-sm font-semibold text-foreground tracking-tight">
           Grounded
         </span>
+        {/* Desktop collapse button */}
         <button
           onClick={onToggle}
-          className="ml-auto flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+          className="ml-auto hidden md:flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/20 hover:text-foreground"
           aria-label="Collapse sidebar"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -92,12 +64,23 @@ export function ChatSidebar({
             <line x1="9" y1="3" x2="9" y2="21" />
           </svg>
         </button>
+        {/* Mobile close button */}
+        <button
+          onClick={onCloseMobile}
+          className="ml-auto flex md:hidden size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+          aria-label="Close menu"
+        >
+          <X className="size-4" />
+        </button>
       </div>
 
       {/* Action buttons */}
       <div className="space-y-1.5 px-3 py-3">
         <button
-          onClick={onNew}
+          onClick={() => {
+            onNew();
+            if (onCloseMobile) onCloseMobile();
+          }}
           className="flex w-full items-center gap-2 rounded-lg border border-border/40 bg-card/30 px-3 py-2 font-mono text-[12px] text-muted-foreground transition-colors hover:bg-evidence/10 hover:text-evidence hover:border-evidence/30"
         >
           <Plus className="size-4" />
@@ -105,7 +88,10 @@ export function ChatSidebar({
         </button>
 
         <button
-          onClick={onToggleTemporaryChat}
+          onClick={() => {
+            if (onToggleTemporaryChat) onToggleTemporaryChat();
+            if (onCloseMobile) onCloseMobile();
+          }}
           className={cn(
             "flex w-full items-center gap-2 rounded-lg border px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition-all",
             isTemporaryChat
@@ -121,13 +107,40 @@ export function ChatSidebar({
       {/* Conversation list */}
       <nav className="flex-1 overflow-y-auto px-2 pb-4">
         {today.length > 0 && (
-          <ConvoGroup label="Today" items={today} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
+          <ConvoGroup
+            label="Today"
+            items={today}
+            activeId={activeId}
+            onSelect={(id) => {
+              onSelect(id);
+              if (onCloseMobile) onCloseMobile();
+            }}
+            onDelete={onDelete}
+          />
         )}
         {week.length > 0 && (
-          <ConvoGroup label="Previous 7 days" items={week} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
+          <ConvoGroup
+            label="Previous 7 days"
+            items={week}
+            activeId={activeId}
+            onSelect={(id) => {
+              onSelect(id);
+              if (onCloseMobile) onCloseMobile();
+            }}
+            onDelete={onDelete}
+          />
         )}
         {older.length > 0 && (
-          <ConvoGroup label="Older" items={older} activeId={activeId} onSelect={onSelect} onDelete={onDelete} />
+          <ConvoGroup
+            label="Older"
+            items={older}
+            activeId={activeId}
+            onSelect={(id) => {
+              onSelect(id);
+              if (onCloseMobile) onCloseMobile();
+            }}
+            onDelete={onDelete}
+          />
         )}
         {conversations.length === 0 && (
           <p className="px-3 py-6 text-center text-[12px] text-muted-foreground/40">
@@ -194,7 +207,66 @@ export function ChatSidebar({
           </div>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {mobileOpen && (
+        <div
+          onClick={onCloseMobile}
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-fade-in"
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile Drawer */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex md:hidden transition-transform duration-300 ease-in-out",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {sidebarContent}
+      </div>
+
+      {/* Desktop View */}
+      <div className="hidden md:flex">
+        {collapsed ? (
+          <aside className="flex w-16 flex-col items-center border-r border-border/40 bg-[var(--sidebar-bg)] py-4">
+            <button
+              onClick={onToggle}
+              className="mb-4 flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+              aria-label="Expand sidebar"
+            >
+              <MessageSquare className="size-5" />
+            </button>
+            <button
+              onClick={onNew}
+              title="New conversation"
+              className="mb-2 flex size-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-evidence/10 hover:text-evidence"
+            >
+              <Plus className="size-5" />
+            </button>
+            <button
+              onClick={onToggleTemporaryChat}
+              title="Temporary Chat"
+              className={cn(
+                "flex size-10 items-center justify-center rounded-lg transition-colors",
+                isTemporaryChat
+                  ? "bg-amber-500/20 text-amber-600 dark:text-amber-400"
+                  : "text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+              )}
+            >
+              <EyeOff className="size-4" />
+            </button>
+          </aside>
+        ) : (
+          sidebarContent
+        )}
+      </div>
+    </>
   );
 }
 

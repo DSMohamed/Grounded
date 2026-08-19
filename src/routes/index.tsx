@@ -80,6 +80,7 @@ function ChatIndexPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [chunkCount, setChunkCount] = useState<number | null>(null);
 
@@ -470,40 +471,53 @@ function ChatIndexPage() {
         onToggleTemporaryChat={handleToggleTemporaryChat}
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main Chat Interface */}
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <header className="flex h-14 items-center justify-between border-b border-border/40 bg-card/20 px-4 backdrop-blur">
-          <div className="flex items-center gap-3">
+        <header className="flex h-14 items-center justify-between border-b border-border/40 bg-card/20 px-3 sm:px-4 backdrop-blur">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Mobile hamburger menu button */}
+            <button
+              onClick={() => setMobileSidebarOpen(true)}
+              className="flex md:hidden size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/20 hover:text-foreground shrink-0"
+              aria-label="Open sidebar menu"
+            >
+              <PanelLeft className="size-4" />
+            </button>
+
+            {/* Desktop toggle button */}
             {sidebarCollapsed && (
               <button
                 onClick={() => setSidebarCollapsed(false)}
-                className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/20 hover:text-foreground"
+                className="hidden md:flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted/20 hover:text-foreground shrink-0"
                 aria-label="Expand sidebar"
               >
                 <PanelLeft className="size-4" />
               </button>
             )}
-            <div className="flex items-center gap-2">
-              <span className="font-serif text-sm font-semibold text-foreground">
+
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-serif text-xs sm:text-sm font-semibold text-foreground truncate">
                 {isTemporaryChat
                   ? "Temporary Consultation"
                   : activeConversation
                     ? activeConversation.title
                     : "New Consultation"}
               </span>
-              <span className="label-mono text-[10px] text-muted-foreground/60 hidden sm:inline">
+              <span className="label-mono text-[10px] text-muted-foreground/60 hidden lg:inline whitespace-nowrap">
                 · USPSTF guideline bound
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {isTemporaryChat ? (
-              <span className="inline-flex items-center gap-1 font-mono text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded-full px-2.5 py-1 font-medium">
-                <EyeOff className="size-3" /> Temporary Mode
+              <span className="inline-flex items-center gap-1 font-mono text-[9px] sm:text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 font-medium">
+                <EyeOff className="size-2.5 sm:size-3" /> Temp
               </span>
             ) : (
               user && (
