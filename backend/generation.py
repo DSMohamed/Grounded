@@ -51,12 +51,12 @@ def format_citation(meta: dict) -> str:
 
 
 def build_context(chunks: list[dict]) -> str:
-    """Build the evidence context block for the LLM prompt."""
+    """Build the evidence context block for the LLM prompt (top 4 chunks for fast inference)."""
     blocks = []
-    for c in chunks:
+    for c in chunks[:4]:
         citation = format_citation(c)
         blocks.append(
-            f"EVIDENCE {citation} (similarity={c['score']:.4f})\n"
+            f"EVIDENCE {citation}\n"
             f"{c['text']}"
         )
     return "\n\n".join(blocks)
@@ -144,45 +144,53 @@ def generate_grounded_answer(
     api_key = os.environ.get("OPEN_ROUTER_KEY", "")
 
     if api_key:
-        try:
-            from langchain_openai import ChatOpenAI
+        candidate_models = [
+            os.environ.get("OPEN_ROUTER_MODEL", "google/gemma-4-26b-a4b-it:free"),
+            "poolside/laguna-s-2.1:free",
+            "nvidia/nemotron-3.5-lightning:free",
+        ]
 
-            model_name = os.environ.get("OPEN_ROUTER_MODEL", "google/gemma-4-26b-a4b-it:free")
-            llm = ChatOpenAI(
-                model=model_name,
-                base_url="https://openrouter.ai/api/v1",
-                api_key=api_key,
-                temperature=0,
-                max_tokens=2048,
-                request_timeout=25,
-                default_headers={
-                    "HTTP-Referer": "http://localhost:8080",
-                    "X-Title": "Grounded Clinical Assistant",
-                },
-            )
+        from langchain_openai import ChatOpenAI
+        context = build_context(chunks)
+        prompt = (
+            f"{DAY3_SYSTEM_PROMPT}\n\n"
+            f"Retrieved evidence:\n{context}\n\n"
+            f"Question: {question}\n\n"
+            "Respond with the JSON object only."
+        )
 
-            context = build_context(chunks)
-            prompt = (
-                f"{DAY3_SYSTEM_PROMPT}\n\n"
-                f"Retrieved evidence:\n{context}\n\n"
-                f"Question: {question}\n\n"
-                "Respond with the JSON object only."
-            )
+        for model_name in candidate_models:
+            try:
+                llm = ChatOpenAI(
+                    model=model_name,
+                    base_url="https://openrouter.ai/api/v1",
+                    api_key=api_key,
+                    temperature=0,
+                    max_tokens=600,
+                    request_timeout=12,
+                    default_headers={
+                        "HTTP-Referer": "http://localhost:8080",
+                        "X-Title": "Grounded Clinical Assistant",
+                    },
+                )
 
-            raw = llm.invoke(prompt).content
-            response = _parse_llm_json(raw)
+                raw = llm.invoke(prompt).content
+                response = _parse_llm_json(raw)
 
-            # Attach passages from retrieved chunks to evidence items
-            chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
-            for item in response.get("supporting_evidence", []):
-                cid = item.get("citation", {}).get("chunk_id", "")
-                if cid in chunk_map:
-                    item["passage"] = chunk_map[cid]
+                # Attach passages from retrieved chunks to evidence items
+                chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
+                for item in response.get("supporting_evidence", []):
+                    cid = item.get("citation", {}).get("chunk_id", "")
+                    if cid in chunk_map:
+                        item["passage"] = chunk_map[cid]
 
-            return response, "live"
+                return response, "live"
 
-        except Exception as e:
-            print(f"[generation] LLM call failed, falling back to simulation: {e}")
-            return _simulate_llm_response(question, chunks), "simulated"
+            except Exception as e:
+                print(f"[generation] Model '{model_name}' attempt failed: {e}. Trying next...")
+                continue
+
+        print("[generation] All live models exhausted, falling back to simulation.")
+        return _simulate_llm_response(question, chunks), "simulated"
     else:
         return _simulate_llm_response(question, chunks), "simulated"

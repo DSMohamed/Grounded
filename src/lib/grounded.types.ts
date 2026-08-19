@@ -93,8 +93,13 @@ export interface Conversation {
 export const STARTER_PROMPTS = [
   {
     icon: "☀️",
-    label: "Sun Protection",
+    label: "Counseling (2018)",
     question: "What does the USPSTF recommend about counseling young adults on minimizing UV radiation exposure?",
+  },
+  {
+    icon: "🔍",
+    label: "Visual Screening (2023)",
+    question: "What does the USPSTF conclude about visual skin examination to screen for skin cancer in asymptomatic adults?",
   },
   {
     icon: "🔬",
@@ -102,14 +107,9 @@ export const STARTER_PROMPTS = [
     question: "How do the counseling recommendations differ by age group?",
   },
   {
-    icon: "🧴",
-    label: "Sunscreen Evidence",
-    question: "What is the evidence on sunscreen versus protective clothing?",
-  },
-  {
     icon: "⚠️",
-    label: "Counseling Harms",
-    question: "Are there harms associated with sun-protection counseling?",
+    label: "Screening Harms & Biopsy",
+    question: "What are the potential harms of routine visual skin screening?",
   },
 ] as const;
 

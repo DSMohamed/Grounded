@@ -47,10 +47,33 @@ function getStorageKey(userId?: string | null): string {
   return userId ? `grounded_chat_user_${userId}` : `grounded_chat_guest_v1`;
 }
 
+function getActiveIdKey(userId?: string | null): string {
+  return userId ? `grounded_active_id_${userId}` : `grounded_active_id_guest`;
+}
+
+function loadActiveId(userId?: string | null): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(getActiveIdKey(userId));
+  } catch {
+    return null;
+  }
+}
+
+function saveActiveId(id: string | null, userId?: string | null) {
+  if (typeof window === "undefined") return;
+  try {
+    const key = getActiveIdKey(userId);
+    if (id) localStorage.setItem(key, id);
+    else localStorage.removeItem(key);
+  } catch (e) {
+    console.error("Failed to save active id:", e);
+  }
+}
+
 function loadSavedConversations(userId?: string | null): Conversation[] {
   if (typeof window === "undefined") return [];
   try {
-    // Clear old un-isolated legacy storage key if present
     if (localStorage.getItem("grounded_chat_conversations_v1")) {
       localStorage.removeItem("grounded_chat_conversations_v1");
     }
@@ -78,8 +101,12 @@ function saveConversations(convos: Conversation[], userId?: string | null) {
 function ChatIndexPage() {
   const askFn = useServerFn(ask);
   const [user, setUser] = useState<User | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>(() =>
+    loadSavedConversations(null)
+  );
+  const [activeId, setActiveId] = useState<string | null>(() =>
+    loadActiveId(null)
+  );
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -90,6 +117,7 @@ function ChatIndexPage() {
   const [tempMessages, setTempMessages] = useState<ChatMessageType[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const currentUserIdRef = useRef<string | null | undefined>(undefined);
 
   // 1. Supabase Auth state listener
   useEffect(() => {
@@ -108,26 +136,40 @@ function ChatIndexPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Load conversations whenever user changes
+  // 2. Load conversations ONLY when user ID actually changes (avoids tab switch / token refresh loss)
   useEffect(() => {
+    const uid = user?.id ?? null;
+    if (currentUserIdRef.current === uid) return;
+    currentUserIdRef.current = uid;
+
     if (user && isSupabaseConfigured) {
-      // Logged in: Fetch exclusively from Supabase Cloud
       fetchCloudConversations(user.id).then((cloudConvos) => {
         if (cloudConvos.length > 0) {
           setConversations(cloudConvos);
-          if (cloudConvos[0]) setActiveId(cloudConvos[0].id);
+          saveConversations(cloudConvos, user.id);
+          const savedActive = loadActiveId(user.id);
+          const matched = cloudConvos.find((c) => c.id === savedActive);
+          const nextActive = matched ? matched.id : (cloudConvos[0]?.id ?? null);
+          setActiveId(nextActive);
+          saveActiveId(nextActive, user.id);
         } else {
-          // Check user-isolated local cache
           const userSaved = loadSavedConversations(user.id);
           setConversations(userSaved);
-          if (userSaved.length > 0 && userSaved[0]) setActiveId(userSaved[0].id);
+          const savedActive = loadActiveId(user.id);
+          const matched = userSaved.find((c) => c.id === savedActive);
+          const nextActive = matched ? matched.id : (userSaved[0]?.id ?? null);
+          setActiveId(nextActive);
+          saveActiveId(nextActive, user.id);
         }
       });
     } else {
-      // Guest / Logged out: Load isolated guest conversations ONLY
       const guestSaved = loadSavedConversations(null);
       setConversations(guestSaved);
-      setActiveId(guestSaved.length > 0 && guestSaved[0] ? guestSaved[0].id : null);
+      const savedActive = loadActiveId(null);
+      const matched = guestSaved.find((c) => c.id === savedActive);
+      const nextActive = matched ? matched.id : (guestSaved[0]?.id ?? null);
+      setActiveId(nextActive);
+      saveActiveId(nextActive, null);
     }
   }, [user]);
 
@@ -159,14 +201,14 @@ function ChatIndexPage() {
       setTempMessages([]);
     } else {
       setActiveId(null);
+      saveActiveId(null, user?.id);
     }
-  }, [isTemporaryChat]);
+  }, [isTemporaryChat, user]);
 
   const handleToggleTemporaryChat = useCallback(() => {
     setIsTemporaryChat((prev) => {
       const next = !prev;
       if (next) {
-        // Reset temp messages on activating temporary chat
         setTempMessages([]);
       }
       return next;
@@ -184,17 +226,22 @@ function ChatIndexPage() {
       deleteCloudConversation(id, user.id);
     }
 
-    setActiveId((curr) => (curr === id ? null : curr));
+    setActiveId((curr) => {
+      const nextId = curr === id ? null : curr;
+      saveActiveId(nextId, user?.id);
+      return nextId;
+    });
   }, [user]);
 
   const handleSignOut = useCallback(async () => {
     if (supabase) {
       await supabase.auth.signOut();
       setUser(null);
-      // Immediately reset conversations to isolated guest storage
       const guestSaved = loadSavedConversations(null);
       setConversations(guestSaved);
-      setActiveId(guestSaved[0]?.id ?? null);
+      const nextActive = guestSaved[0]?.id ?? null;
+      setActiveId(nextActive);
+      saveActiveId(nextActive, null);
     }
   }, []);
 
@@ -316,6 +363,7 @@ function ChatIndexPage() {
           return next;
         });
         setActiveId(newId);
+        saveActiveId(newId, user?.id);
       } else {
         setConversations((prev) => {
           const next = prev.map((c) => {
@@ -466,6 +514,7 @@ function ChatIndexPage() {
         onSelect={(id) => {
           setIsTemporaryChat(false);
           setActiveId(id);
+          saveActiveId(id, user?.id);
         }}
         onDelete={handleDeleteChat}
         onSignOut={handleSignOut}
