@@ -201,7 +201,7 @@ def generate_grounded_answer(
 
     # ── 1. Try Grok (xAI API) if configured ────────────────────────────────────
     if grok_key:
-        grok_model = os.environ.get("GROK_MODEL", "grok-2-latest")
+        grok_model = os.environ.get("GROK_MODEL", "grok-2-1212")
         grok_headers = {
             "Authorization": f"Bearer {grok_key}",
             "Content-Type": "application/json",
