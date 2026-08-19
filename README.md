@@ -12,14 +12,14 @@
 
 ## 🌟 Key Features
 
-* **🔬 Strict Evidence Binding**: Answers are generated exclusively from retrieved guideline chunks. Zero hallucinated claims or invented citations.
-* **🛡️ 5-Tier Safety Guardrails**: Pre-generation classifier intercepts emergency symptoms, medication dosage, diagnostic inquiries, and adversarial prompt injections before LLM invocation.
-* **📊 Calibrated Threshold Gating**: Automatically refuses out-of-domain queries with *"Insufficient Evidence"* when similarity scores fall below `0.57`.
-* **💬 ChatGPT-Style Conversational UX**: Full-featured conversational interface with chat history, radial confidence gauges, and expandable passage drawers.
-* **🕵️ Temporary Chat (Incognito Mode)**: Privacy-preserving consultation mode with zero disk persistence or database tracking.
-* **☁️ Cloud Sync & Authentication**: Optional Supabase authentication with PostgreSQL database and Row Level Security (RLS) + guest local storage fallback.
-* **📱 Fully Mobile Responsive**: Slide-over drawer and touch-friendly interface across all screen sizes.
-* **📈 Automated Evaluation Suite**: Built-in 20-case clinical evaluation runner calculating Precision@K, Citation Validity, and Faithfulness.
+* ** Strict Evidence Binding**: Answers are generated exclusively from retrieved guideline chunks. Zero hallucinated claims or invented citations.
+* ** 5-Tier Safety Guardrails**: Pre-generation classifier intercepts emergency symptoms, medication dosage, diagnostic inquiries, and adversarial prompt injections before LLM invocation.
+* ** Calibrated Threshold Gating**: Automatically refuses out-of-domain queries with *"Insufficient Evidence"* when similarity scores fall below `0.57`.
+* ** ChatGPT-Style Conversational UX**: Full-featured conversational interface with chat history, radial confidence gauges, and expandable passage drawers.
+* ** Temporary Chat (Incognito Mode)**: Privacy-preserving consultation mode with zero disk persistence or database tracking.
+* ** Cloud Sync & Authentication**: Optional Supabase authentication with PostgreSQL database and Row Level Security (RLS) + guest local storage fallback.
+* ** Fully Mobile Responsive**: Slide-over drawer and touch-friendly interface across all screen sizes.
+* ** Automated Evaluation Suite**: Built-in 20-case clinical evaluation runner calculating Precision@K, Citation Validity, and Faithfulness.
 
 ---
 
