@@ -4,7 +4,7 @@
 [![Safety Refusal](https://img.shields.io/badge/Safety_Refusal_Accuracy-100%25-blue.svg?style=for-the-badge)](#-internal-evaluation-scorecard)
 [![Unsupported Claims](https://img.shields.io/badge/Unsupported_Claims-0.0%25-emerald.svg?style=for-the-badge)](#-internal-evaluation-scorecard)
 [![Latency](https://img.shields.io/badge/Latency-Sub--3s_LPU-orange.svg?style=for-the-badge)](#-latency--provider-architecture)
-[![License](https://img.shields.io/badge/License-MIT-purple.svg?style=for-the-badge)](#)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](./LICENSE)
 
 > **"Fluent ≠ Safe."**  
 > In clinical AI, an unsupported answer is a severe patient hazard. **Grounded** is an evidence-bound Clinical Decision Support system strictly tethered to official **USPSTF Skin Cancer Guidelines (2018 Behavioral Counseling + 2023 Visual Screening)**. Every clinical claim is bound to a verifiable passage citation, and refusal is treated as an intentional, first-class safety mechanism.
@@ -280,5 +280,11 @@ grounded-insights/
 
 ---
 
+## 📜 License
+This project is licensed under the **Apache License 2.0** — see the [LICENSE](./LICENSE) file for full details.
+
+---
+
 ## 👥 Team: **El Safe Refusal**
 * Built with ❤️ for the AI Clinical Decision Support Hackathon.
+
