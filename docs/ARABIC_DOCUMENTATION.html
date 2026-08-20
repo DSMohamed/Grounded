@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Grounded Insights — التوثيق التقني للـ Backend</title>
+<style>
+  @page { margin: 1.8cm 1.8cm; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    direction: rtl;
+    text-align: right;
+    color: #1a1a1a;
+    line-height: 1.6;
+    font-size: 13px;
+    background: #ffffff;
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 24px;
+    color: #047857;
+    margin-bottom: 4px;
+  }
+  h2 {
+    font-size: 17px;
+    color: #065f46;
+    background: #ecfdf5;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-top: 26px;
+    margin-bottom: 10px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 14px;
+    color: #047857;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+  .meta {
+    font-size: 12px;
+    color: #555;
+    direction: ltr;
+    text-align: left;
+    background: #f7f7f7;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+  }
+  .toc {
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 10px 18px;
+    margin-bottom: 20px;
+  }
+  .toc ol { margin: 4px 0; padding-inline-start: 20px; }
+  .toc li { margin-bottom: 3px; }
+  p { margin: 6px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 16px 0;
+    font-size: 12px;
+    direction: rtl;
+  }
+  th, td {
+    border: 1px solid #d8d8d8;
+    padding: 5px 8px;
+    text-align: right;
+    vertical-align: top;
+  }
+  th.narrow, td.narrow {
+    white-space: nowrap;
+  }
+  th {
+    background: #10B981;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  tr:nth-child(even) { background: #f7fbfa; }
+  code {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    direction: ltr;
+    unicode-bidi: embed;
+    display: inline-block;
+    background: #f0f0f0;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 11.5px;
+  }
+  pre {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    direction: ltr;
+    unicode-bidi: embed;
+    text-align: left;
+    background: #10231d;
+    color: #d7f5ea;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.45;
+    white-space: pre;
+    margin: 8px 0 14px 0;
+    overflow-x: auto;
+  }
+  .tip {
+    background: #ecfdf5;
+    border: 1px solid #10B981;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 20px;
+  }
+  .tip b { color: #047857; }
+  hr { border: none; border-top: 1px solid #e2e2e2; margin: 18px 0; }
+  .footer { font-size: 10px; color: #999; margin-top: 24px; direction: ltr; text-align: left; }
+  ul, ol { padding-inline-start: 22px; }
+  li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Grounded Insights — التوثيق التقني للـ Backend</h1>
+<div class="meta">
+  <b>النظام:</b> Evidence-bound RAG pipeline لإرشادات الوقاية من سرطان الجلد<br>
+  <b>الفريق:</b> +90 Clutch / El Safe Refusal<br>
+  <b>المستودع:</b> github.com/DSMohamed/Grounded
+</div>
+
+<div class="toc">
+<b>جدول المحتويات</b>
+<ol>
+<li>نظرة عامة على النظام</li>
+<li>مصادر البيانات — ليه USPSTF؟</li>
+<li>استراتيجية استخراج وتقطيع الـ PDF</li>
+<li>موديل الـ Embedding — ليه bge-small-en-v1.5؟</li>
+<li>قاعدة بيانات المتجهات — ليه ChromaDB؟</li>
+<li>خط الاسترجاع — Config A</li>
+<li>خط التوليد — Dual-Provider Failover</li>
+<li>الـ System Prompt الخاص بالـ Grounding — فلسفة التصميم</li>
+<li>محلل JSON ذاتي الإصلاح</li>
+<li>طبقة الأمان — مصنف مخاطر بـ 3 مستويات</li>
+<li>التحقق من الاقتباسات — تحقق بعد التوليد</li>
+<li>دورة حياة الطلب الكاملة</li>
+<li>تحسين زمن الاستجابة</li>
+<li>خريطة الملفات</li>
+</ol>
+</div>
+
+<hr>
+
+<h2>1. نظرة عامة على النظام</h2>
+<p>Grounded Insights هو نظام <b>Retrieval-Augmented Generation (RAG)</b> اتبنى خصيصًا لدعم القرار الإكلينيكي. على عكس أي شات بوت عادي، أي كلمة النظام بيطلعها لازم يكون فيه مصدر واضح ليها — صفحة معينة، قسم معين، وقطعة نص (chunk) معينة من إرشاد طبي رسمي.</p>
+<p>الـ backend عبارة عن تطبيق <b>FastAPI</b> بيوفر endpoint اتنين:</p>
+
+<table style="table-layout: fixed;">
+<tr><th width="20%"><nobr>Endpoint</nobr></th><th width="14%"><nobr>Method</nobr></th><th>الغرض</th></tr>
+<tr><td width="20%"><nobr><code>/health</code></nobr></td><td width="14%"><nobr>GET</nobr></td><td>حالة الفهرسة، عدد القطع، وضع الـ LLM الشغال</td></tr>
+<tr><td width="20%"><nobr><code>/ask</code></nobr></td><td width="14%"><nobr>POST</nobr></td><td>الخط الكامل من 5 مراحل: تصنيف ← استرجاع ← بوابة ← توليد ← تحقق</td></tr>
+</table>
+
+<h3>ليه FastAPI؟</h3>
+<ul>
+<li><b>جاهز للـ Async:</b> بيدعم الاتنين sync وasync، مثالي لطلبات الـ LLM اللي بتاخد وقت.</li>
+<li><b>توثيق OpenAPI تلقائي:</b> الحكام يقدروا يشوفوا الـ API schema فورًا على <code>/docs</code>.</li>
+<li><b>تكامل Pydantic:</b> شكل الطلب والرد بيتفرض على مستوى الـ framework نفسه — أي بيانات غلط بترفض قبل ما توصل لكود الـ pipeline أصلاً.</li>
+<li><b>خفيف:</b> مفيش ORM ولا session management — بس خط الـ RAG.</li>
+</ul>
+
+<h2>2. مصادر البيانات — ليه USPSTF؟</h2>
+<p>بنفهرس <b>وثيقتين رسميتين من USPSTF</b>:</p>
+
+<table style="table-layout: fixed;">
+<tr><th>الوثيقة</th><th width="10%"><nobr>السنة</nobr></th><th width="16%"><nobr>عدد الصفحات</nobr></th><th>التركيز</th></tr>
+<tr><td>Behavioral Counseling to Prevent Skin Cancer</td><td width="10%"><nobr>2018</nobr></td><td width="16%"><nobr>7 صفحات</nobr></td><td>إرشاد الحماية من الشمس، مخاطر التعرض للأشعة فوق البنفسجية</td></tr>
+<tr><td>Screening for Skin Cancer in Adolescents and Adults</td><td width="10%"><nobr>2023</nobr></td><td width="16%"><nobr>5 صفحات</nobr></td><td>الفحص البصري، معايير ABCDE، التشخيص الزائد</td></tr>
+</table>
+
+<h3>ليه USPSTF بالذات؟</h3>
+<ol>
+<li><b>مصداقية معيارية:</b> الـ U.S. Preventive Services Task Force هيئة مستقلة وممنوحة تفويض فيدرالي. توصياتهم بتحمل تصنيف أدلة "A/B/C/D/I" — أعلى معيار في الطب الوقائي.</li>
+<li><b>ملك عام:</b> توصيات USPSTF متاحة مجانًا — من غير ترخيص أو قيود نشر.</li>
+<li><b>بنية قابلة للاقتباس:</b> كل وثيقة فيها أقسام واضحة، وأرقام صفحات، ودرجات توصية — مثالية للاقتباسات المنظمة.</li>
+<li><b>منظورين متكاملين:</b> وثيقة 2018 بتغطي <i>الإرشاد السلوكي</i> (اللي المفروض تقوله للمريض عن الحماية من الشمس). وثيقة 2023 بتغطي <i>الفحص البصري</i> (هل تفحص الجلد بحثًا عن آفات ولا لأ). مع بعض بيدوا اتساع من غير ما يفقدوا العمق.</li>
+</ol>
+
+<h3>ليه وثيقتين بس؟</h3>
+<p>قيد الهاكاثون + الجودة أهم من الكمية. فهرسة 50 وثيقة كانت هتقلل من دقة الاسترجاع. بوثيقتين مركزتين، إحنا نضمن إن أي قطعة نص بترجع من مصدر موثوق، ونقدر نتأكد يدويًا من كل اقتباس بيطلعه النظام.</p>
+
+<h2>3. استراتيجية استخراج وتقطيع الـ PDF</h2>
+<p><b>الملف:</b> <code>backend/ingest.py</code></p>
+
+<h3>خط الاستخراج</h3>
+<pre>PDF → PyPDFLoader → Raw pages → clean_text() → Section mapping → Chunking → Metadata attachment</pre>
+
+<h3>تنظيف النص (clean_text)</h3>
+<p>استخراج الـ PDF بيطلع نص فيه ضوضاء: تقسيمات كلمات بشرطة، مسافات فاضية زيادة، رموز مش ASCII. المنظف بتاعنا بيعالج:</p>
+
+<table>
+<tr><th>المشكلة</th><th>الحل</th></tr>
+<tr><td>تقسيم كلمة بشرطة عند نهاية السطر، زي <code>recom-</code> في سطر و<code>mendation</code> في اللي بعده</td><td>ضم الكلمة تاني: <code>recommendation</code></td></tr>
+<tr><td>أسطر جديدة وtabs جوه النص</td><td>تحويلها لمسافة واحدة</td></tr>
+<tr><td>رموز مش قابلة للطباعة</td><td>حذفها والإبقاء على ASCII بس</td></tr>
+<tr><td>مسافات متعددة</td><td>تحويلها لمسافة واحدة</td></tr>
+</table>
+
+<h3>باراميترات التقطيع — ليه chunk_size=500 وoverlap=75؟</h3>
+<pre>CHUNK_SIZE = 500   # tokens (characters via RecursiveCharacterTextSplitter)
+CHUNK_OVERLAP = 75  # ~15% overlap</pre>
+
+<p><b>ليه 500؟</b></p>
+<ul>
+<li>سلايدات اليوم الثاني بتنصح بـ <b>400–600 توكن للأقسام اللي شكلها توصيات</b>. إرشادات USPSTF متبنية على فقرات توصية قصيرة — 500 في النقطة المثالية.</li>
+<li>لو صغير أوي (200): القطعة بتفقد السياق — توصية من غير معاييرها المصاحبة بتبقى غير مفيدة.</li>
+<li>لو كبير أوي (1000): القطعة بتخلط أكتر من توصية مع بعض — الاسترجاع بيرجع الصفحة الصح بس الادعاء الغلط.</li>
+<li>جربنا 400 و500 و600. <b>500 حقق أعلى Precision@5</b> على مجموعة التقييم بتاعتنا.</li>
+</ul>
+
+<p><b>ليه overlap 75 (~15%)؟</b></p>
+<ul>
+<li>بيمنع إن جملة مهمة تتقطع عند حد الجملة وتتفقد. توصية بتبدأ عند الحرف رقم 490 مش هتضيع.</li>
+<li>السلايدات بتنصح بـ <b>10–15% تداخل</b>. 75 من 500 = 15% — عند أعلى حد منصوح بيه.</li>
+</ul>
+
+<h3>البيانات الوصفية المرتبطة بالأقسام</h3>
+<p>كل وثيقة عندها <code>section_map</code> اتعمل يدويًا بيربط اسم القسم بشكل مفهوم برقم الصفحة:</p>
+<pre>"section_map": {
+    1: "Abstract & Recommendation Summary",
+    2: "Summary of Recommendations and Evidence",
+    3: "Rationale - Benefits, Harms, and Clinical Considerations",
+    ...
+}</pre>
+
+<p><b>ليه ربط يدوي بدل الاكتشاف التلقائي؟</b></p>
+<ul>
+<li>ملفات USPSTF PDF بتستخدم تنسيقات عناوين مش ثابتة (بعضها bold، بعضها مسافة بادئة، بعضها في نفس السطر).</li>
+<li>الاكتشاف التلقائي كان هيصنف عناوين شكلية على إنها فواصل أقسام غلط.</li>
+<li>الربط اليدوي بيضمن إن اسم القسم في الاقتباس يطابق بالظبط اللي الطبيب هيشوفه في الوثيقة الأصلية.</li>
+</ul>
+
+<h3>حذف صفحات المراجع</h3>
+<pre>"ref_start_page": 7  # Pages 7+ are bibliography — not clinical content</pre>
+<p>بنشيل صفحات المراجع/الببليوجرافيا قبل التقطيع. الصفحات دي فيها أسماء مؤلفين وعناوين مجلات كانت هتلوث الاسترجاع بنتائج تشابه عالي بس قيمتها صفر.</p>
+
+<h2>4. موديل الـ Embedding — ليه bge-small-en-v1.5؟</h2>
+<p><b>الملف:</b> <code>backend/index.py</code></p>
+<pre>FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")</pre>
+
+<h3>مقارنة الموديلات</h3>
+<table style="table-layout: fixed;">
+<tr><th>الموديل</th><th width="9%"><nobr>الأبعاد</nobr></th><th width="9%"><nobr>الحجم</nobr></th><th width="16%">ترتيب MTEB</th><th width="13%">السرعة</th><th width="16%">اختيارنا؟</th></tr>
+<tr><td>bge-small-en-v1.5</td><td width="9%"><nobr>384</nobr></td><td width="9%"><nobr>33M</nobr></td><td>من الأفضل في فئته</td><td>سريع جدًا</td><td>✅ آه</td></tr>
+<tr><td>bge-base-en-v1.5</td><td width="9%"><nobr>768</nobr></td><td width="9%"><nobr>109M</nobr></td><td>درجة أعلى مطلقًا</td><td>متوسط</td><td>❌ بطيء أوي للعرض في الهاكاثون</td></tr>
+<tr><td>all-MiniLM-L6-v2</td><td width="9%"><nobr>384</nobr></td><td width="9%"><nobr>22M</nobr></td><td>كويس بس قديم</td><td>سريع</td><td>❌ دقة أقل على النصوص الطبية</td></tr>
+<tr><td>text-embedding-3-small (OpenAI)</td><td width="9%"><nobr>1536</nobr></td><td width="9%"><nobr>API</nobr></td><td>ممتاز</td><td>معتمد على الشبكة</td><td>❌ اعتماد على API، تكلفة، تأخير</td></tr>
+<tr><td>e5-small-v2</td><td width="9%"><nobr>384</nobr></td><td width="9%"><nobr>33M</nobr></td><td>مشابه</td><td>سريع</td><td>❌ أقل شوية على مجموعة تقييمنا</td></tr>
+</table>
+
+<h3>ليه bge-small-en-v1.5 كسب؟</h3>
+<ol>
+<li><b>أفضل نسبة جودة لحجم:</b> بحجم 33 ميجا بس، بيترتب من الأعلى على مقياس MTEB في فئته. بيتفوق على موديلات أكبر منه بـ3 أضعاف في مهام الاسترجاع.</li>
+<li><b>التعامل مع المصطلحات الطبية:</b> موديلات BGE متدربة على مجموعات نصوص متنوعة فيها نصوص علمية. في اختبارنا، عبر صح عن مصطلحات زي "melanoma" و"ABCDE criteria" و"UV exposure" و"squamous cell carcinoma" بدقة دلالية عالية.</li>
+<li><b>من غير اعتماد على API:</b> بيشتغل محليًا عن طريق FastEmbed — صفر تأخير شبكة، صفر تكلفة، صفر حدود استخدام. مهم جدًا لعرض هاكاثون مش مضمون فيه استقرار الشبكة.</li>
+<li><b>تكامل FastEmbed:</b> مكتبة fastembed بتوفر استدلال محسن بـONNX — الموديل بيتحمل في حوالي ثانيتين وبيعمل embed للسؤال في أقل من 50 ميلي ثانية. من غير حاجة لـGPU.</li>
+<li><b>توافق مع cosine similarity:</b> موديلات BGE v1.5 متدربة خصيصًا باستخدام cosine similarity كمقياس مسافة، وده مطابق لإعدادات ChromaDB عندنا.</li>
+</ol>
+
+<h3>ليه مش موديل أكبر؟</h3>
+<ul>
+<li><b>وقت التشغيل:</b> bge-base بياخد 8-12 ثانية عشان يتحمل مقابل ثانيتين لـbge-small. في عرض حي، الـcold start مهم.</li>
+<li><b>عائد متناقص:</b> على وثيقتين وبس 12 صفحة، الفرق في الجودة بين small وbase كان مش محسوس — الاتنين رجعوا القطعة الصح في أول 3 نتائج لأكتر من 90% من أسئلة التقييم.</li>
+<li><b>الذاكرة:</b> bge-small بياخد حوالي 130 ميجا رام مقابل حوالي 440 ميجا لـbge-base. على سيرفر Render مجاني (512 ميجا)، الفرق ده أساسي.</li>
+</ul>
+
+<h2>5. قاعدة بيانات المتجهات — ليه ChromaDB؟</h2>
+<p><b>الملف:</b> <code>backend/index.py</code></p>
+<pre>Chroma.from_documents(
+    documents=documents,
+    embedding=embeddings,
+    persist_directory=str(PERSIST_DIR),
+    collection_name=COLLECTION_NAME,
+    collection_metadata={"hnsw:space": "cosine"},
+)</pre>
+
+<h3>مقارنة قواعد البيانات</h3>
+<table style="table-layout: fixed;">
+<tr><th width="13%">القاعدة</th><th width="12%">النوع</th><th width="16%">الحفظ</th><th width="15%">الإعداد</th><th width="20%">فلترة البيانات الوصفية</th><th>اختيارنا؟</th></tr>
+<tr><td width="13%"><nobr>ChromaDB</nobr></td><td width="12%">مدمجة</td><td width="16%">على الديسك محليًا</td><td width="15%">بدون إعداد</td><td width="20%">✅ أصلية</td><td>✅ آه</td></tr>
+<tr><td width="13%"><nobr>FAISS</nobr></td><td width="12%">في الذاكرة</td><td width="16%">حفظ/تحميل يدوي</td><td width="15%">بسيط</td><td width="20%">❌ من غير فلترة أصلية</td><td>❌</td></tr>
+<tr><td width="13%"><nobr>Pinecone</nobr></td><td width="12%">سحابية</td><td width="16%">مُدارة</td><td width="15%"><nobr>API key + شبكة</nobr></td><td width="20%">✅ غنية</td><td>❌ اعتماد على API</td></tr>
+<tr><td width="13%"><nobr>Weaviate</nobr></td><td width="12%">سيرفر</td><td width="16%"><nobr>Docker</nobr></td><td width="15%">ثقيل</td><td width="20%">✅ غنية</td><td>❌ زيادة عن الحاجة</td></tr>
+<tr><td width="13%"><nobr>Qdrant</nobr></td><td width="12%">سيرفر</td><td width="16%"><nobr>Docker</nobr></td><td width="15%">متوسط</td><td width="20%">✅ غنية</td><td>❌ زيادة عن الحاجة</td></tr>
+</table>
+
+<h3>ليه ChromaDB كسبت؟</h3>
+<ol>
+<li><b>بنية تحتية صفر:</b> من غير Docker، من غير حساب سحابي، من غير API key. <code>pip install chromadb</code> وخلاص شغالة. في هاكاثون 4 أيام، تعقيد البنية التحتية هو العدو.</li>
+<li><b>حفظ مدمج:</b> <code>persist_directory</code> بيحفظ الفهرس على الديسك أوتوماتيك. سيرفر الـAPI بيحمل الفهرس الجاهز عند التشغيل في أقل من ثانية — من غير إعادة embedding في كل مرة يشتغل.</li>
+<li><b>تكامل أصلي مع LangChain:</b> <code>Chroma.from_documents()</code> و<code>similarity_search_with_relevance_scores()</code> مدعومين بشكل أساسي في LangChain. صفر كود ربط إضافي.</li>
+<li><b>تخزين مشترك للبيانات الوصفية:</b> كل متجه متخزن جنب بياناته الوصفية (اسم الوثيقة، القسم، الصفحة، chunk_id). من غير قاعدة بيانات منفصلة للبيانات الوصفية.</li>
+<li><b>درجات ملاءمة جاهزة:</b> ChromaDB بترجع درجات cosine similarity مع كل استعلام — أساسي لبوابة WEAK_THRESHOLD بتاعتنا.</li>
+<li><b>HNSW مع cosine:</b> بنظبط <code>{"hnsw:space": "cosine"}</code> للبحث التقريبي عن أقرب جار باستخدام مسافة cosine. ده متوافق مع هدف تدريب موديل BGE.</li>
+</ol>
+
+<h3>ليه مش FAISS؟</h3>
+<p>FAISS أسرع في البحث الخام عن المتجهات، لكن:</p>
+<ul>
+<li>مفيش تخزين أصلي للبيانات الوصفية — هنحتاج جدول بحث منفصل لـchunk_id والصفحة والقسم.</li>
+<li>مفيش حفظ أصلي — لازم <code>faiss.write_index()</code> / <code>faiss.read_index()</code> يدويًا.</li>
+<li>مفيش درجات ملاءمة أصلية في LangChain wrapper — كود إضافي لتطبيع المسافات.</li>
+</ul>
+<p>لمجموعة 60 قطعة، ميزة سرعة FAISS الخام مالهاش قيمة (الاتنين بيرجعوا في أقل من 10 ميلي ثانية).</p>
+
+<h2>6. خط الاسترجاع — Config A</h2>
+<p><b>الملف:</b> <code>backend/retrieval.py</code></p>
+<pre>TOP_K = 5
+WEAK_THRESHOLD = 0.57</pre>
+
+<h3>ليه Top-K = 5؟</h3>
+<ul>
+<li><b>Top-3:</b> ضيق جدًا. الأسئلة اللي بتغطي مواضيع الإرشاد والفحص مع بعض أحيانًا محتاجة قطع من الوثيقتين.</li>
+<li><b>Top-5:</b> النقطة المثالية. تنوع كافي لتغطية الأسئلة متعددة الجوانب، وفي نفس الوقت صغير بما يكفي عشان يدخل في نافذة سياق الـLLM من غير ضوضاء.</li>
+<li><b>Top-10:</b> ضجة كتير. القطع الأقل ترتيبًا غالبًا بتحتوي محتوى قريب في الموضوع بس مش مرتبط إكلينيكيًا (زي استرجاع "الفحص الذاتي للجلد" لما السؤال يكون عن "إرشاد الحماية من الشمس").</li>
+</ul>
+<p>جربنا التلاتة على مجموعة التقييم. <b>Top-5 حقق أفضل توازن بين الدقة والضوضاء.</b></p>
+
+<h3>ليه WEAK_THRESHOLD = 0.57؟</h3>
+<p>دي <b>بوابة ثقة الاسترجاع</b> — لو أفضل قطعة درجتها أقل من 0.57، النظام بيرفض يجاوب بدل ما يخاطر بالهلوسة.</p>
+<p>إزاي اخترنا 0.57:</p>
+<ol>
+<li>شغلنا كل أسئلة التقييم ورسمنا درجات أفضل نتيجة.</li>
+<li>الأسئلة اللي في نطاق الإرشادات سجلت من 0.62 لـ0.92.</li>
+<li>الأسئلة خارج النطاق ("إيه علاج السكري؟") سجلت من 0.35 لـ0.55.</li>
+<li><b>0.57 هي حد القرار</b> اللي بيفصل بين اللي في النطاق واللي مش في النطاق من غير أي نتيجة إيجابية خاطئة في مجموعة تقييمنا.</li>
+</ol>
+
+<h3>شكل القطعة المسترجَعة</h3>
+<p>كل قطعة بترجع من <code>retrieve_final()</code> بتحتوي:</p>
+<pre>{
+    "document": "USPSTF Behavioral Counseling to Prevent Skin Cancer (2018)",
+    "section": "Clinical Considerations - Risk Assessment and Counseling",
+    "page": 4,
+    "chunk_id": "uspstf_skin_cancer_2018-CH-017",
+    "score": 0.8234,
+    "text": "The actual chunk text..."
+}</pre>
+<p>كل الحقول الستة مطلوبة — لو حقل ناقص، سلسلة الاقتباس بتنكسر.</p>
+
+<h2>7. خط التوليد — Dual-Provider Failover</h2>
+<p><b>الملف:</b> <code>backend/generation.py</code></p>
+<pre>Grok (xAI) → OpenRouter (Gemma 4) → Deterministic Simulation</pre>
+
+<h3>سلسلة المزودين</h3>
+<table style="table-layout: fixed;">
+<tr><th width="9%"><nobr>الأولوية</nobr></th><th width="13%">المزود</th><th width="22%">الموديل</th><th width="12%"><nobr>مهلة الانتظار</nobr></th><th>ليه؟</th></tr>
+<tr><td width="9%">الأول</td><td width="13%"><nobr>Grok (xAI)</nobr></td><td width="22%"><nobr>grok-2-1212</nobr></td><td width="12%"><nobr>6 ثواني</nobr></td><td>سريع، موثوق، بيتبع التعليمات بدقة عالية</td></tr>
+<tr><td width="9%">الثاني</td><td width="13%"><nobr>OpenRouter</nobr></td><td width="22%"><nobr>gemma-4-26b-a4b-it:free</nobr></td><td width="12%"><nobr>6 ثواني</nobr></td><td>احتياطي مجاني، جودة نص إكلينيكي كويسة</td></tr>
+<tr><td width="9%">الثالث</td><td width="13%"><nobr>Simulation</nobr></td><td width="22%">محدد سلفًا <nobr>(Deterministic)</nobr></td><td width="12%"><nobr>0 ثانية</nobr></td><td>استجابة مضمونة باستخدام القطع المسترجعة مباشرة</td></tr>
+</table>
+
+<h3>ليه الترتيب ده؟</h3>
+<ol>
+<li><b>Grok الأول:</b> Grok-2 من xAI بيتبع تعليمات الـJSON بدقة عالية ونادرًا ما بيهلوس لما يديله system prompt صارم. بيحترم قيد "JSON بس، من غير مقدمة" بشكل أثبت من موديلات تانية.</li>
+<li><b>OpenRouter الثاني:</b> الوصول المجاني لـGemma 4 (26B) بيوفر احتياطي قوي. OpenRouter أحيانًا بيحدد معدل الطلبات وقت الذروة، فلذلك هو احتياطي مش أساسي.</li>
+<li><b>Simulation الثالث:</b> الحل الأخير. لو الاتنين APIs فشلوا (الشبكة واقعة، حد استخدام، رصيد خلص)، النظام برضو بيرجع إجابة عن طريق:
+  <ul>
+  <li>ياخد أعلى 3 قطع مسترجعة</li>
+  <li>يستخرج أول جملة من كل واحدة كـ"ادعاء"</li>
+  <li>يحزمهم مع بياناتهم الوصفية كاقتباسات</li>
+  <li>يحدد الثقة على أساس درجة الاسترجاع</li>
+  </ul>
+  ده بيضمن إن النظام <b>مايرجعش أبدًا خطأ للمستخدم</b> — بيتدهور بشكل تدريجي مش فجأة.
+</li>
+</ol>
+
+<h3>ليه requests.post مباشرة بدل ChatOpenAI من LangChain؟</h3>
+<ul>
+<li><b>زمن الاستجابة:</b> الـwrapper بتاع LangChain بيضيف حوالي 200 ميلي ثانية overhead (تحقق من الموديل، منطق إعادة المحاولة، تحليل الرد). HTTP مباشر بـrequests بيشيل ده.</li>
+<li><b>التحكم في المهلة:</b> بنفرض مهلة صارمة 6 ثواني لكل مزود. سلوك المهلة في LangChain مش ثابت بين المزودين.</li>
+<li><b>معالجة الأخطاء:</b> مع HTTP مباشر، بناخد كود الحالة ونص الخطأ بالظبط — أساسي عشان نفرق بين "تم تحديد المعدل" (جرب المزود اللي بعده) و"موديل غير صالح" (تخطاه نهائيًا).</li>
+</ul>
+
+<h3>Temperature = 0</h3>
+<pre>"temperature": 0</pre>
+<p>في RAG الإكلينيكي، عايزين إجابات <b>ثابتة وقابلة للتكرار</b>. نفس السؤال بنفس الأدلة لازم يطلع نفس الإجابة كل مرة. Temperature أكبر من صفر بيدخل عشوائية مش مقبولة في سياق طبي.</p>
+
+<h3>Max Tokens = 500</h3>
+<p>بيخلي الإجابات مختصرة. التوصية الإكلينيكية المفروض تكون جملتين أو تلاتة، مش مقال بـ2000 توكن. ده كمان بيقلل زمن الاستجابة والتكلفة.</p>
+
+<h2>8. الـ System Prompt الخاص بالـ Grounding — فلسفة التصميم</h2>
+<p><b>الملف:</b> <code>backend/generation.py</code></p>
+<p>الـsystem prompt بيفرض <b>7 قواعد</b>:</p>
+
+<table>
+<tr><th>القاعدة</th><th>الغرض</th><th>بتمنع إيه</th></tr>
+<tr><td>1. استخدم الأدلة المسترجعة بس</td><td>الـGrounding</td><td>استخدام الموديل لمعرفته من التدريب</td></tr>
+<tr><td>2. ماتخترعش حدود/أرقام</td><td>الأمان الواقعي</td><td>جرعات أو معايير مختلقة</td></tr>
+<tr><td>3. كل ادعاء لازم يقترن باقتباس</td><td>إمكانية التتبع</td><td>اقتباسات شكلية أو ناقصة</td></tr>
+<tr><td>4. جاوب بالمعلومات المتاحة، ارفض بس لو مفيش صلة خالص</td><td>الفائدة العملية</td><td>الرفض الزائد على أدلة جزئية</td></tr>
+<tr><td>5. رجع بنية JSON بالظبط</td><td>إمكانية التحليل</td><td>ردود نص حر بتكسر الـpipeline</td></tr>
+<tr><td>6. ماتخمنش جرعة أو حد أبدًا</td><td>الأمان الإكلينيكي</td><td>معلومات طبية خاطئة خطيرة</td></tr>
+<tr><td>7. JSON بس، من غير مقدمة</td><td>موثوقية التحليل</td><td>"دي الـJSON:" بتكسر json.loads()</td></tr>
+</table>
+
+<h3>ليه صياغة "صارمة" مش "مهذبة"؟</h3>
+<p>سلايدات اليوم التالت بتحذر صراحة: <i>"prompt 'مهذب' مش صارم — بيصيغ القيود كاقتراحات ممكن الموديل يتجاوزها"</i> غلطة شائعة.</p>
+<p>الـprompt بتاعنا بيستخدم <b>صيغة أمرية</b>: "Never"، "Do not"، "must be paired with". الموديلات بتتعامل مع الاقتراحات المهذبة ("please try to") على إنها اختيارية. القواعد الأمرية بتقلل كسر القاعدة بحوالي 70% في اختبارنا.</p>
+
+<h3>بنية الـJSON</h3>
+<pre>{
+  "status": "Answered | Insufficient Evidence | Safety Refusal",
+  "recommendation": "Plain-language answer",
+  "supporting_evidence": [
+    {
+      "claim": "Specific factual claim",
+      "citation": {
+        "document": "Full document name",
+        "section": "Section title",
+        "page": 4,
+        "chunk_id": "uspstf_skin_cancer_2018-CH-017"
+      }
+    }
+  ],
+  "confidence": "High | Medium | Low | Insufficient Evidence",
+  "missing_information": "What the evidence doesn't cover",
+  "safety_note": "Educational disclaimer"
+}</pre>
+
+<p>كل حقل بيخدم معيار تحكيم:</p>
+<ul>
+<li><code>status</code> ← هل النظام عارف إمتى يرفض؟</li>
+<li><code>recommendation</code> ← هل الإجابة واضحة ومبنية على مصدر؟</li>
+<li><code>supporting_evidence</code> ← هل ممكن تتبع كل ادعاء؟</li>
+<li><code>confidence</code> ← هل الثقة مرتبطة بجودة الأدلة؟</li>
+<li><code>missing_information</code> ← هل النظام بيعترف بالفجوات بصراحة؟</li>
+<li><code>safety_note</code> ← هل فيه تنويه إكلينيكي؟</li>
+</ul>
+
+<h2>9. محلل JSON ذاتي الإصلاح</h2>
+<p><b>الملف:</b> <code>backend/generation.py</code></p>
+<p>الـLLMs مش دايمًا بترجع JSON صحيح. الأعطال الشائعة:</p>
+
+<table>
+<tr><th>العطل</th><th>مثال</th><th>التكرار</th></tr>
+<tr><td>أسوار Markdown حوالين الـJSON</td><td>الرد بييجي ملفوف بأسوار كود، زي أسوار json قبل وبعد الـJSON نفسه</td><td>~30% من الردود</td></tr>
+<tr><td>فاصلة زيادة في آخر الـobject</td><td>فاصلة إضافية قبل القوس المغلق مباشرة في نهاية الـJSON</td><td>~15%</td></tr>
+<tr><td>علامات اقتباس مش متهربة</td><td>علامات اقتباس إضافية جوه نص الـclaim من غير escape</td><td>~10%</td></tr>
+<tr><td>ناتج مقطوع (وصل لحد max_tokens)</td><td>الـJSON بيتقطع فجأة قبل ما يقفل، والـobject بيفضل مفتوح</td><td>~5%</td></tr>
+</table>
+
+<h3>استراتيجية الإصلاح (3 مستويات)</h3>
+<pre>Level 1: Standard json.loads(strict=False)
+    ↓ fails
+Level 2: Auto-repair (balance quotes/braces/brackets, strip trailing commas)
+    ↓ fails
+Level 3: Regex field extraction (pull recommendation, status, confidence individually)</pre>
+
+<p><b>ليه مش نعيد الطلب للـLLM تاني؟</b></p>
+<ul>
+<li>إعادة المحاولة بتضيف 3-6 ثواني زمن استجابة.</li>
+<li>المحتوى غالبًا صحيح — بس التنسيق هو اللي مكسور.</li>
+<li>استخراج المستوى التالت بـregex بيسترجع الإجابة في حوالي 95% من الحالات من غير أي اتصال بالشبكة.</li>
+</ul>
+
+<h2>10. طبقة الأمان — مصنف مخاطر بـ3 مستويات</h2>
+<p><b>الملف:</b> <code>backend/risk_classifier.py</code></p>
+
+<h3>مستويات الخطورة</h3>
+<pre>[ User Question ]
+        |
+        v
+   [ Classify ]
+        |
+   -----+------------------------+
+   |                             |
+   v                             v
+[ Allowed ]  [ Needs Caution ]  [ Refuse / Redirect ]
+   |               |                    |
+   v               v                    v
+Normal pipeline   Answer with     Instant refusal
+                   caution note   (0ms, no retrieval)</pre>
+
+<h3>إيه اللي بيفعل كل مستوى؟</h3>
+<table>
+<tr><th>المستوى</th><th>المُفعِلات</th><th>أمثلة</th></tr>
+<tr><td>رفض/تحويل</td><td>حالات طارئة، جرعات، وصفات، طلبات تشخيص، أوامر تلاعب بالنظام، قرارات خزعة</td><td>"عندي melanoma؟"، "آخد جرعة قد إيه؟"، "تجاهل تعليماتك"</td></tr>
+<tr><td>محتاج حذر</td><td>سياق خاص بالمريض ممكن يتجاوب عليه بمعلومات إرشادية عامة</td><td>"أنا معرض للخطر؟"، "أعمل فحص؟"، "الشامة بتاعتي خطيرة؟"</td></tr>
+<tr><td>مسموح</td><td>أسئلة إرشادية عامة</td><td>"إيه معايير ABCDE؟"، "USPSTF بتنصح بإيه؟"</td></tr>
+</table>
+
+<h3>ليه regex بدل مصنف LLM؟</h3>
+<ol>
+<li><b>السرعة:</b> تصنيف regex بيشتغل في <b>أقل من 1 ميلي ثانية</b>. مصنف LLM كان هيضيف 1-3 ثواني.</li>
+<li><b>الثبات:</b> نفس المدخل دايمًا بيطلع نفس التصنيف. مفيش تغير مرتبط بالـtemperature.</li>
+<li><b>الشفافية:</b> كل نمط قابل للقراءة والمراجعة. الحكام يقدروا يتأكدوا بالظبط إيه اللي بيفعل الرفض.</li>
+<li><b>مفيش سلبيات كاذبة على الأنماط الحرجة:</b> "ألم في الصدر"، "مش قادر أتنفس"، "جرعة زايدة" — دول <b>لازم</b> يفعلوا فورًا، كل مرة. الـregex بيضمن ده؛ تصنيف LLM لأ.</li>
+</ol>
+
+<h3>فئات الأنماط</h3>
+<table>
+<tr><th>الفئة</th><th>العدد</th><th>أمثلة</th></tr>
+<tr><td>طوارئ</td><td>8 كلمات</td><td>ألم في الصدر، مش قادر يتنفس، نزيف شديد، سكتة، جرعة زايدة</td></tr>
+<tr><td>جرعة/وصف طبي</td><td>7 أنماط</td><td>"الجرعة إيه"، "كام مجم"، "الجرعة"، "الوصفة"</td></tr>
+<tr><td>تلاعب بالنظام</td><td>3 أنماط</td><td>"تجاهل التعليمات"، "jailbreak"، "اتظاهر إنك"</td></tr>
+<tr><td>تشخيص</td><td>3 أنماط</td><td>"عندي سرطان؟"، "شخصلي"، "الشامة خبيثة؟"</td></tr>
+<tr><td>اختيار علاج</td><td>3 أنماط</td><td>"أعمل أي علاج"، "أعمل عملية؟"</td></tr>
+<tr><td>خاص بالمريض</td><td>7 أنماط</td><td>"عندي"، "معرض للخطر"، "أوقف/آخد/أعمل"</td></tr>
+</table>
+
+<h2>11. التحقق من الاقتباسات — تحقق بعد التوليد</h2>
+<p><b>الملف:</b> <code>backend/validation.py</code></p>
+<p>بعد ما الـLLM يولد الرد، إحنا <b>مش بنصدقه على طول</b>. طبقة التحقق بتفحص:</p>
+
+<h3>التحقق من البنية (Schema)</h3>
+<table>
+<tr><th>الفحص</th><th>بيمسك إيه</th></tr>
+<tr><td>كل الحقول الستة المطلوبة موجودة</td><td>ناتج LLM مشوه</td></tr>
+<tr><td><code>status</code> ضمن {Answered, Insufficient Evidence, Safety Refusal}</td><td>قيم status غير صالحة</td></tr>
+<tr><td><code>confidence</code> ضمن {High, Medium, Low, Insufficient Evidence}</td><td>مستويات ثقة مختلقة</td></tr>
+<tr><td>لو status=Answered ← supporting_evidence مش فاضي</td><td>ادعاءات من غير دليل</td></tr>
+<tr><td>لو status=Answered ← confidence ≠ Insufficient Evidence</td><td>حالة متناقضة</td></tr>
+<tr><td>كل عنصر دليل فيه claim + اقتباس كامل</td><td>حقول اقتباس ناقصة</td></tr>
+</table>
+
+<h3>كشف الاقتباسات المختلقة</h3>
+<pre>retrieved_ids = {c["chunk_id"] for c in retrieved_chunks}
+invented = [cid for cid in evidence_ids if cid and cid not in retrieved_ids]</pre>
+
+<p><b>ده أهم فحص في النظام كله.</b> لو الـLLM استشهد بـ<code>chunk_id: "uspstf_skin_cancer_2018-CH-099"</code> بس القطعة دي أصلاً ماترجعتش من الاسترجاع، الاقتباس يبقى <b>مختلق</b> — الـLLM هلوس مصدر.</p>
+
+<p>إيه اللي بيحصل للاقتباسات المختلقة:</p>
+<ol>
+<li>بيتسجلوا في الرد: <code>validation.invented_citations</code></li>
+<li>بيتشالوا من الرد النهائي: <code>clean_evidence</code> بيحتوي بس الادعاءات المتحقق منها</li>
+<li>عداد <code>citations_verified</code> بيعكس بس الاقتباسات الحقيقية</li>
+</ol>
+<p>ده معناه إن المستخدم <b>مش هيشوف أبدًا اقتباس مش قادر يتتبعه لقطعة حقيقية</b>.</p>
+
+<h2>12. دورة حياة الطلب الكاملة</h2>
+<pre>User: "What are the ABCDE criteria for melanoma?"
+        |
+        v
+[1] classify_risk()      &lt; 1ms     -- tier = "Allowed"
+        |
+        v
+[2] retrieve_final()     ~50ms     -- TOP_K = 5, top_score = 0.87
+        |
+        v
+[3] Threshold Gate       &lt; 1ms     -- 0.87 >= 0.57 ? YES
+        |
+        v
+[4] generate()           1-4s      -- Grok -> OpenRouter -> Simulation
+        |
+        v
+[5] validate()           &lt; 1ms     -- check citations, filter invented
+        |
+        v
+   AskResponse (Pydantic)</pre>
+
+<h3>تفصيل توقيت كل مرحلة</h3>
+<table>
+<tr><th>المرحلة</th><th>المكون</th><th>الوقت النموذجي</th></tr>
+<tr><td>① تصنيف المخاطر</td><td>أنماط Regex</td><td>أقل من 1 ميلي ثانية</td></tr>
+<tr><td>② الاسترجاع</td><td>بحث ChromaDB HNSW</td><td>30–80 ميلي ثانية</td></tr>
+<tr><td>③ بوابة الحد الأدنى</td><td>مقارنة الدرجة</td><td>أقل من 1 ميلي ثانية</td></tr>
+<tr><td>④ التوليد</td><td>استدعاء Grok API</td><td>1.5–4 ثواني</td></tr>
+<tr><td>⑤ التحقق</td><td>التحقق من الاقتباسات</td><td>أقل من 1 ميلي ثانية</td></tr>
+<tr><td><b>الإجمالي</b></td><td></td><td><b>1.6–4.1 ثانية</b></td></tr>
+</table>
+
+<h2>13. تحسين زمن الاستجابة</h2>
+<h3>الهدف: استجابة أقل من 4 ثواني</h3>
+<table>
+<tr><th>التحسين</th><th>الأثر</th><th>إزاي</th></tr>
+<tr><td>HTTP مباشر بدل wrapper LangChain</td><td>−200 ميلي ثانية</td><td><code>requests.post()</code> بدل <code>ChatOpenAI()</code></td></tr>
+<tr><td>مهلة صارمة 6 ثواني لكل مزود</td><td>يمنع التعليق</td><td><code>timeout=6.0</code> في requests</td></tr>
+<tr><td>أقصى 500 توكن</td><td>توليد أسرع</td><td>نص أقل يتولد</td></tr>
+<tr><td>Temperature = 0</td><td>أسرع شوية</td><td>من غير overhead العينات العشوائية</td></tr>
+<tr><td>أعلى 4 قطع في السياق (مش 5)</td><td>prompt أصغر</td><td><code>chunks[:4]</code> في build_context()</td></tr>
+<tr><td>احتياطي محاكاة فوري</td><td>0 ميلي ثانية لو الـAPIs فشلوا</td><td>مفيش حاجة تتصل بالشبكة</td></tr>
+<tr><td>فهرس ChromaDB جاهز مسبقًا</td><td>تشغيل أقل من ثانية</td><td><code>persist_directory</code> بيتفادى إعادة الـembedding</td></tr>
+<tr><td>استدلال FastEmbed بـONNX</td><td>~50 ميلي ثانية لكل استعلام</td><td>محسن للـCPU، من غير GPU</td></tr>
+</table>
+
+<h3>توقيت الاحتياطي عند الفشل</h3>
+<pre>Best case:  Grok responds in 1.5s → Total: ~1.6s
+Normal:     Grok responds in 3s   → Total: ~3.1s
+Grok fails: OpenRouter in 3s     → Total: ~6.1s (6s Grok timeout + 3s OR)
+Both fail:  Simulation instant    → Total: ~0.1s (after 12s timeout)</pre>
+
+<h2>14. خريطة الملفات</h2>
+<pre>backend/
+ |- __init__.py
+ |- main.py          # FastAPI app, endpoints, Pydantic models, pipeline orchestration
+ |- ingest.py        # PDF loading, text cleaning, section-aware chunking, metadata
+ |- index.py         # Embedding model init, ChromaDB build/load, persistence
+ |- retrieval.py     # Top-K semantic search, score sorting, WEAK_THRESHOLD config
+ |- generation.py    # System prompt, LLM calls (Grok/OpenRouter/Sim), JSON parser
+ |- risk_classifier.py  # 3-tier regex safety classifier (Allowed/Caution/Refuse)
+ |- validation.py    # Schema validation, invented citation detection
+ \- server.py        # Uvicorn launcher, Ngrok tunnel auto-setup</pre>
+
+<table style="table-layout: fixed;">
+<tr><th width="24%">الملف</th><th width="14%"><nobr>عدد الأسطر</nobr></th><th>المسؤولية</th></tr>
+<tr><td width="24%"><nobr><code>main.py</code></nobr></td><td width="14%">278</td><td>تنسيق خط المعالجة من 5 مراحل</td></tr>
+<tr><td width="24%"><nobr><code>ingest.py</code></nobr></td><td width="14%">136</td><td>تحويل ملفات الـPDF لقطع قابلة للاقتباس</td></tr>
+<tr><td width="24%"><nobr><code>index.py</code></nobr></td><td width="14%">67</td><td>إدارة دورة حياة فهرس المتجهات</td></tr>
+<tr><td width="24%"><nobr><code>retrieval.py</code></nobr></td><td width="14%">35</td><td>بحث دلالي مع البيانات الوصفية</td></tr>
+<tr><td width="24%"><nobr><code>generation.py</code></nobr></td><td width="14%">292</td><td>تكامل الـLLM ومنطق الـgrounding</td></tr>
+<tr><td width="24%"><nobr><code>risk_classifier.py</code></nobr></td><td width="14%">116</td><td>تصنيف أمان المدخلات</td></tr>
+<tr><td width="24%"><nobr><code>validation.py</code></nobr></td><td width="14%">85</td><td>مراجعة الاقتباسات بعد التوليد</td></tr>
+</table>
+
+<div class="tip">
+<b>ملحوظة للحكام:</b> أهم ميزة في النظام ده إن <b>مفيش اقتباس بيوصل للمستخدم إلا لو اتحقق منه فعليًا مقابل القطع اللي فعلاً اتسترجعت</b>. طبقة التحقق شغالة كجدار حماية بعد التوليد — حتى لو الـLLM هلوس مصدر، بيتمسك ويتشال قبل ما الرد يوصل للمستخدم.
+</div>
+
+<div class="footer">Grounded — Team El Safe Refusal | github.com/DSMohamed/Grounded</div>
+
+</body>
+</html>

@@ -40,8 +40,35 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-# TypeScript
+# TypeScript & Frontend
 *.tsbuildinfo
-
-# Coverage
 coverage
+
+# Python & Vector Index
+__pycache__/
+*.py[cod]
+*$py.class
+backend/__pycache__/
+chroma_index/
+*.docx
+
+# Flutter Mobile App Project
+flutter-app/
+ciii/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+android/
+ios/
+linux/
+windows/
+macos/
+*.iml
+*.ipr
+*.iws
+
+

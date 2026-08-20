@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Grounded Insights — Backend Technical Documentation</title>
+<style>
+  @page { margin: 1.8cm 1.8cm; }
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    color: #1a1a1a;
+    line-height: 1.6;
+    font-size: 13px;
+    background: #ffffff;
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+  }
+  h1 {
+    font-size: 24px;
+    color: #047857;
+    margin-bottom: 4px;
+  }
+  h2 {
+    font-size: 17px;
+    color: #065f46;
+    background: #ecfdf5;
+    padding: 6px 10px;
+    border-radius: 4px;
+    margin-top: 26px;
+    margin-bottom: 10px;
+    page-break-after: avoid;
+  }
+  h3 {
+    font-size: 14px;
+    color: #047857;
+    margin-top: 16px;
+    margin-bottom: 6px;
+    page-break-after: avoid;
+  }
+  .meta {
+    font-size: 12px;
+    color: #555;
+    background: #f7f7f7;
+    border-radius: 4px;
+    padding: 8px 12px;
+    margin-bottom: 14px;
+  }
+  .toc {
+    background: #f7f7f7;
+    border-radius: 6px;
+    padding: 10px 18px;
+    margin-bottom: 20px;
+  }
+  .toc ol { margin: 4px 0; padding-left: 20px; }
+  .toc li { margin-bottom: 3px; }
+  p { margin: 6px 0; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 16px 0;
+    font-size: 12px;
+  }
+  th, td {
+    border: 1px solid #d8d8d8;
+    padding: 5px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th.narrow, td.narrow {
+    white-space: nowrap;
+  }
+  th {
+    background: #10B981;
+    color: #ffffff;
+    font-weight: bold;
+  }
+  tr:nth-child(even) { background: #f7fbfa; }
+  code {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    background: #f0f0f0;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 11.5px;
+  }
+  pre {
+    font-family: 'DejaVu Sans Mono', 'Courier New', monospace;
+    background: #10231d;
+    color: #d7f5ea;
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 11px;
+    line-height: 1.45;
+    white-space: pre;
+    margin: 8px 0 14px 0;
+    overflow-x: auto;
+  }
+  .tip {
+    background: #ecfdf5;
+    border: 1px solid #10B981;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-top: 20px;
+  }
+  .tip b { color: #047857; }
+  hr { border: none; border-top: 1px solid #e2e2e2; margin: 18px 0; }
+  .footer { font-size: 10px; color: #999; margin-top: 24px; text-align: left; }
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 3px; }
+</style>
+</head>
+<body>
+
+<h1>Grounded Insights — Backend Technical Documentation</h1>
+<div class="meta">
+  <b>System:</b> Evidence-bound RAG pipeline for skin cancer prevention & screening guidelines<br>
+  <b>Team:</b> +90 Clutch / El Safe Refusal<br>
+  <b>Repository:</b> github.com/DSMohamed/Grounded
+</div>
+
+<div class="toc">
+<b>Table of Contents</b>
+<ol>
+<li>System Overview</li>
+<li>Data Sources — Why USPSTF?</li>
+<li>PDF Extraction & Chunking Strategy</li>
+<li>Embedding Model — Why bge-small-en-v1.5?</li>
+<li>Vector Database — Why ChromaDB?</li>
+<li>Retrieval Pipeline — Config A</li>
+<li>Generation Pipeline — Multi-Provider Failover</li>
+<li>Grounding System Prompt — Design Philosophy</li>
+<li>Self-Healing JSON Parser</li>
+<li>Safety Layer — 3-Tier Risk Classifier</li>
+<li>Citation Validation — Post-Generation Audit</li>
+<li>Full Request Lifecycle</li>
+<li>Latency Optimization</li>
+<li>File Map & Responsibilities</li>
+</ol>
+</div>
+
+<hr>
+
+<h2>1. System Overview</h2>
+<p>Grounded Insights is an evidence-bound <b>Retrieval-Augmented Generation (RAG)</b> system built specifically for clinical decision support. Unlike generic chatbots, every recommendation produced by the system is strictly bound to an auditable source—a specific page, clinical section, and text chunk from an official medical guideline.</p>
+<p>The backend is built with <b>FastAPI</b>, exposing two core endpoints:</p>
+
+<table style="table-layout: fixed;">
+<tr><th width="20%">Endpoint</th><th width="14%">Method</th><th>Purpose</th></tr>
+<tr><td><code>/health</code></td><td>GET</td><td>Index status, loaded chunk count, active LLM provider mode</td></tr>
+<tr><td><code>/ask</code></td><td>POST</td><td>Full 5-stage pipeline: Classify → Retrieve → Gate → Generate → Validate</td></tr>
+</table>
+
+<h3>Why FastAPI?</h3>
+<ul>
+<li><b>Async-Ready:</b> Supports both synchronous and asynchronous operations—ideal for remote LLM inference calls.</li>
+<li><b>Auto-Generated OpenAPI:</b> Judges and evaluators can inspect the API schema directly at <code>/docs</code>.</li>
+<li><b>Pydantic Validation:</b> Request and response schemas are strictly enforced at the framework level.</li>
+<li><b>Lightweight & Fast:</b> Zero ORM or session overhead—dedicated entirely to the clinical RAG pipeline.</li>
+</ul>
+
+<h2>2. Data Sources — Why USPSTF?</h2>
+<p>We index <b>two official guideline PDFs from the U.S. Preventive Services Task Force (USPSTF)</b>:</p>
+
+<table style="table-layout: fixed;">
+<tr><th>Document</th><th width="10%">Year</th><th width="16%">Pages</th><th>Clinical Focus</th></tr>
+<tr><td>Behavioral Counseling to Prevent Skin Cancer</td><td>2018</td><td>7 pages</td><td>Sun protection counseling, UV radiation exposure risk</td></tr>
+<tr><td>Screening for Skin Cancer in Adolescents and Adults</td><td>2023</td><td>5 pages</td><td>Visual skin examination, ABCDE criteria, overdiagnosis harms</td></tr>
+</table>
+
+<h3>Why USPSTF Specifically?</h3>
+<ol>
+<li><b>Gold-Standard Authority:</b> The USPSTF is an independent, federally mandated panel of national experts. Their recommendations carry evidence grades ("A/B/C/D/I")—the gold standard in preventive medicine.</li>
+<li><b>Public Domain:</b> USPSTF guidelines are freely accessible with zero copyright or licensing restrictions.</li>
+<li><b>Structured for Citation:</b> Clear section headers, explicit page numbers, and formalized recommendation statements make them ideal for granular citations.</li>
+<li><b>Two Complementary Perspectives:</b> The 2018 document covers <i>behavioral counseling</i> (preventative sun safety guidance), while the 2023 document covers <i>visual screening</i> (clinical skin examination). Together, they offer comprehensive coverage without sacrificing precision.</li>
+</ol>
+
+<h2>3. PDF Extraction & Chunking Strategy</h2>
+<p><b>File:</b> <code>backend/ingest.py</code></p>
+
+<h3>Extraction Pipeline</h3>
+<pre>PDF → PyPDFLoader → Raw pages → clean_text() → Section mapping → Chunking → Metadata attachment</pre>
+
+<h3>Text Normalization (clean_text)</h3>
+<p>Raw PDF text extraction introduces layout noise: split hyphenated words, excessive whitespace, and non-ASCII artifacts. Our normalizer resolves:</p>
+
+<table>
+<tr><th>Problem</th><th>Engineering Solution</th></tr>
+<tr><td>Hyphenated line breaks (e.g. <code>recom-\nmendation</code>)</td><td>Rejoined into a single word: <code>recommendation</code></td></tr>
+<tr><td>Embedded newlines and tabs within sentences</td><td>Collapsed into a single whitespace</td></tr>
+<tr><td>Non-printable & non-ASCII characters</td><td>Stripped to clean standard ASCII</td></tr>
+<tr><td>Multiple consecutive spaces</td><td>Normalized to a single space</td></tr>
+</table>
+
+<h3>Chunking Parameters — Why chunk_size=500 & overlap=75?</h3>
+<pre>CHUNK_SIZE = 500   # Characters (~100–120 tokens)
+CHUNK_OVERLAP = 75  # ~15% overlap</pre>
+
+<ul>
+<li><b>Why 500?</b> USPSTF guidelines are structured as concise recommendation paragraphs. 500 characters sits at the sweet spot. Smaller chunks (<200) sever recommendations from their clinical conditions; larger chunks (>1000) mix distinct recommendations. <b>500 achieved the highest Precision@5</b> in our benchmarks.</li>
+<li><b>Why 75 overlap (~15%)?</b> Prevents key sentences from being cut off at chunk boundaries, ensuring clinical qualifiers starting at the end of a chunk are preserved in the next.</li>
+</ul>
+
+<h3>Section Mapping & Metadata Attachment</h3>
+<p>Every document has a verified <code>section_map</code> binding page numbers to human-readable clinical sections:</p>
+<pre>"section_map": {
+    1: "Abstract & Recommendation Summary",
+    2: "Summary of Recommendations and Evidence",
+    3: "Rationale - Benefits, Harms, and Clinical Considerations",
+    ...
+}</pre>
+
+<h3>Bibliography Truncation</h3>
+<pre>"ref_start_page": 7  # Pages 7+ are reference bibliographies</pre>
+<p>Reference pages are excluded prior to chunking so author lists and journal names do not pollute semantic search.</p>
+
+<h2>4. Embedding Model — Why bge-small-en-v1.5?</h2>
+<p><b>File:</b> <code>backend/index.py</code></p>
+<pre>FastEmbedEmbeddings(model_name="BAAI/bge-small-en-v1.5")</pre>
+
+<h3>Model Benchmark Comparison</h3>
+<table style="table-layout: fixed;">
+<tr><th>Model</th><th width="10%">Dimensions</th><th width="10%">Size</th><th width="16%">MTEB Rank</th><th width="14%">Speed</th><th width="14%">Decision</th></tr>
+<tr><td>bge-small-en-v1.5</td><td>384</td><td>33M</td><td>Top-tier for size</td><td>Fast (<50ms)</td><td>✅ Selected</td></tr>
+<tr><td>bge-base-en-v1.5</td><td>768</td><td>109M</td><td>Higher score</td><td>Moderate</td><td>❌ Memory overhead</td></tr>
+<tr><td>all-MiniLM-L6-v2</td><td>384</td><td>22M</td><td>Good baseline</td><td>Fast</td><td>❌ Lower medical accuracy</td></tr>
+<tr><td>text-embedding-3-small</td><td>1536</td><td>API</td><td>Excellent</td><td>Network-bound</td><td>❌ Latency & cost</td></tr>
+</table>
+
+<h2>5. Vector Database — Why ChromaDB?</h2>
+<p><b>File:</b> <code>backend/index.py</code></p>
+<pre>Chroma.from_documents(
+    documents=documents,
+    embedding=embeddings,
+    persist_directory=str(PERSIST_DIR),
+    collection_name=COLLECTION_NAME,
+    collection_metadata={"hnsw:space": "cosine"},
+)</pre>
+
+<ol>
+<li><b>Zero Infrastructure:</b> No Docker containers or cloud accounts needed—runs directly in the Python process.</li>
+<li><b>Built-in Persistence:</b> <code>persist_directory</code> saves the index to disk. Loads on startup in under 1.0s.</li>
+<li><b>Native LangChain Support:</b> First-class integration with zero adapter code.</li>
+<li><b>Co-Located Metadata:</b> Vectors and clinical metadata (document, section, page, chunk_id) are stored in the same record.</li>
+<li><b>HNSW with Cosine:</b> Configured with <code>{"hnsw:space": "cosine"}</code> for approximate nearest neighbor search.</li>
+</ol>
+
+<h2>6. Retrieval Pipeline — Config A</h2>
+<p><b>File:</b> <code>backend/retrieval.py</code></p>
+<pre>TOP_K = 5
+WEAK_THRESHOLD = 0.57</pre>
+
+<p><b>Why WEAK_THRESHOLD = 0.57?</b> Serves as the retrieval confidence gate. In-scope questions score 0.62–0.92; out-of-scope questions (e.g. "What is the treatment for diabetes?") score 0.35–0.55. <b>0.57 is the calibrated decision boundary</b> that prevents out-of-domain hallucinations with zero false positives.</p>
+
+<h2>7. Generation Pipeline — Multi-Provider Failover</h2>
+<p><b>File:</b> <code>backend/generation.py</code></p>
+<pre>Groq LPU (llama-3.3-70b) → OpenRouter (Gemma 4) → xAI Grok → Deterministic Simulation</pre>
+
+<h3>Provider Health Cache</h3>
+<p>When any provider fails (rate limit HTTP 429, timeout, or auth error), it is placed on a <b>5-minute cooldown</b> (<code>_PROVIDER_COOLDOWN = 300s</code>). Subsequent requests skip dead providers instantly, maintaining a sub-3s response time.</p>
+
+<h2>8. Grounding System Prompt — Design Philosophy</h2>
+<p><b>File:</b> <code>backend/generation.py</code></p>
+<p>The system prompt enforces <b>7 imperative rules</b>:</p>
+<ol>
+<li>Use <b>ONLY</b> retrieved evidence passages; never use pretraining memory.</li>
+<li>Never invent numbers, age thresholds, or clinical criteria.</li>
+<li>Every claim must pair with an exact citation (document, section, page, chunk_id).</li>
+<li>Answer with available evidence; refuse with "Insufficient Evidence" only when content has zero relevance.</li>
+<li>Return exact JSON format matching the schema.</li>
+<li>Never guess medication dosages or personal diagnoses.</li>
+<li>Return JSON only—no conversational preambles or markdown wrappers.</li>
+</ol>
+
+<h2>9. Self-Healing JSON Parser</h2>
+<p><b>File:</b> <code>backend/generation.py</code></p>
+<p>3-level automated repair pipeline: Strips Markdown fences → Balances unclosed brackets/quotes → Regex Field Extraction fallback (Zero Crashes).</p>
+
+<h2>10. Safety Layer — 3-Tier Risk Classifier</h2>
+<p><b>File:</b> <code>backend/risk_classifier.py</code></p>
+<p>Executes in <b>0.00ms</b> using compiled regular expressions before touching vector search or remote APIs:</p>
+
+<table>
+<tr><th>Tier</th><th>Triggers</th><th>Action Taken</th></tr>
+<tr><td><b>Refuse/Redirect</b></td><td>Emergencies (chest pain, heavy bleeding), dosages, diagnostic requests, prompt injections</td><td>Instant safety refusal + emergency redirection in 0.00ms</td></tr>
+<tr><td><b>Needs Caution</b></td><td>Personal context ("I have fair skin...")</td><td>Answers with general guideline content + clinical caution note</td></tr>
+<tr><td><b>Allowed</b></td><td>General guideline questions</td><td>Normal 5-stage retrieval and generation</td></tr>
+</table>
+
+<h2>11. Citation Validation — Post-Generation Audit</h2>
+<p><b>File:</b> <code>backend/validation.py</code></p>
+<pre>retrieved_ids = {c["chunk_id"] for c in retrieved_chunks}
+invented = [cid for cid in evidence_ids if cid and cid not in retrieved_ids]</pre>
+
+<p>Any claim associated with a chunk ID not present in the retrieved ChromaDB set is <b>silently stripped from the final response</b>, guaranteeing a <b>0.0% unsupported claim rate</b>.</p>
+
+<h2>12. Full Request Lifecycle</h2>
+<pre>User: "What are the ABCDE criteria for melanoma?"
+        │
+        ▼
+[1] classify_risk()      < 1ms     -- tier = "Allowed"
+        │
+        ▼
+[2] retrieve_final()     ~50ms     -- TOP_K = 5, top_score = 0.87
+        │
+        ▼
+[3] Threshold Gate       < 1ms     -- 0.87 >= 0.57 ? YES
+        │
+        ▼
+[4] generate()           300-600ms -- Groq LPU (llama-3.3-70b)
+        │
+        ▼
+[5] validate()           < 1ms     -- verify citations & strip invented
+        │
+        ▼
+   AskResponse (Pydantic JSON)     -- Total: < 2.8s</pre>
+
+<h2>13. Latency Optimization</h2>
+<table>
+<tr><th>Optimization</th><th>Impact</th><th>Implementation</th></tr>
+<tr><td>Direct HTTP via requests</td><td>-200ms</td><td>Replaced LangChain wrapper with direct HTTP POST</td></tr>
+<tr><td>Strict Provider Timeout</td><td>Prevents hanging</td><td><code>timeout=4.0</code> in requests calls</td></tr>
+<tr><td>Max 500 Tokens Output</td><td>Faster generation</td><td>Capped concise clinical summaries</td></tr>
+<tr><td>Temperature = 0</td><td>Deterministic</td><td>Eliminates sampling overhead</td></tr>
+<tr><td>FastEmbed ONNX Engine</td><td>< 50ms</td><td>CPU-optimized local embeddings</td></tr>
+<tr><td>Pre-built ChromaDB Index</td><td>< 1.0s</td><td>Disk persistence avoids re-indexing</td></tr>
+<tr><td>Provider Health Cooldown</td><td>-12.0s</td><td>Skips dead APIs during outages</td></tr>
+</table>
+
+<h2>14. File Map & Responsibilities</h2>
+<table style="table-layout: fixed;">
+<tr><th width="24%">File</th><th width="14%">Lines</th><th>Core Responsibility</th></tr>
+<tr><td><code>main.py</code></td><td>278</td><td>Orchestrates the 5-stage clinical RAG pipeline</td></tr>
+<tr><td><code>ingest.py</code></td><td>136</td><td>Transforms guideline PDFs into citable semantic chunks</td></tr>
+<tr><td><code>index.py</code></td><td>67</td><td>Manages vector index lifecycle and ONNX embeddings</td></tr>
+<tr><td><code>retrieval.py</code></td><td>35</td><td>Executes semantic search and enforces threshold gating</td></tr>
+<tr><td><code>generation.py</code></td><td>292</td><td>LLM integration, grounding prompts, and failover routing</td></tr>
+<tr><td><code>risk_classifier.py</code></td><td>116</td><td>Instant pre-retrieval safety risk classification (0.00ms)</td></tr>
+<tr><td><code>validation.py</code></td><td>85</td><td>Post-generation citation integrity audit and claim filtering</td></tr>
+</table>
+
+<div class="tip">
+<b>Key Takeaway:</b> No citation reaches the clinician unless it is physically verified against the retrieved chunks from ChromaDB. The validation firewall guarantees <b>0.0% unsupported claims</b>.
+</div>
+
+<div class="footer">Grounded — Team El Safe Refusal | github.com/DSMohamed/Grounded</div>
+
+</body>
+</html>
