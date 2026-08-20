@@ -191,11 +191,22 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `.env` to add your preferred API key (Groq recommended for best speed):
-```env
-GROQ_API_KEY=gsk_your_groq_api_key_here
-GROQ_MODEL=llama-3.3-70b-versatile
-```
+#### Complete `.env` Configuration Reference:
+
+| Environment Variable | Description | Default / Example | Priority / Requirement |
+| :--- | :--- | :--- | :---: |
+| `GROQ_API_KEY` | Groq LPU API key for ultra-fast (`~400ms`) live synthesis | `gsk_...` | **1st Priority** *(Recommended)* |
+| `GROQ_MODEL` | Groq model identifier | `llama-3.3-70b-versatile` | Optional (defaults to 70B versatile) |
+| `OPEN_ROUTER_KEY` | OpenRouter API key for multi-model failover | `sk-or-v1-...` | **2nd Priority** *(Failover)* |
+| `OPEN_ROUTER_MODEL` | OpenRouter model identifier | `google/gemma-4-26b-a4b-it:free` | Optional |
+| `GROK_API_KEY` / `XAI_API_KEY` | xAI Grok API key | `xai-...` | **3rd Priority** *(Failover)* |
+| `GROK_MODEL` | xAI Grok model identifier | `grok-2-1212` | Optional |
+| `VITE_API_URL` | Backend API URL accessed by frontend | `http://127.0.0.1:8000` | Optional (defaults to localhost) |
+| `VITE_SUPABASE_URL` | Supabase Project URL for cloud conversation sync | `https://your-proj.supabase.co` | Optional (Guest mode works offline) |
+| `VITE_SUPABASE_ANON_KEY`| Supabase public anon key with RLS | `eyJhbGciOi...` | Optional |
+| `NGROK_AUTHTOKEN` | Ngrok Auth token for automatic public tunnels | `2a...` | Optional (for Flutter / remote dev) |
+
+> 💡 **Offline / Simulation Mode**: If no LLM API keys are provided in `.env`, the system automatically enters **deterministic simulation mode** — extracting and synthesizing directly from top retrieved ChromaDB passages without crashing or requiring any API keys.
 
 Start the FastAPI server:
 ```bash
