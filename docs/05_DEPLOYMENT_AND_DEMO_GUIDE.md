@@ -71,7 +71,7 @@ services:
 
 ## 3. Frontend Deployment (Cloudflare Pages / TanStack Start)
 
-* **Production URL**: `https://grounded-insights.pages.dev`
+* **Production URL**: `https://grounded-insights.mohamedbuisness2.workers.dev/`
 * **Framework**: React 19, TanStack Start, Nitro `cloudflare-module` preset.
 
 ### Build Configuration:

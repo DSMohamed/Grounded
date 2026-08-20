@@ -75,7 +75,7 @@ docs/
 * **What it covers**: Day 5 curriculum — cloud infrastructure, mobile integration, and live pitch rehearsal.
 * **Key Topics**:
   * Backend deployment on Render (`https://grounded-o09a.onrender.com`).
-  * Frontend web app on Cloudflare Pages (`https://grounded-insights.pages.dev`).
+  * Frontend web app on Cloudflare Pages (`https://grounded-insights.mohamedbuisness2.workers.dev/`).
   * Cross-platform Flutter mobile client with PyNgrok auto-tunneling.
   * **The 3 Core Live Pitch Scenarios** (High-Confidence Answer, 0ms Safety Refusal, and Out-of-Scope Gating).
   * Troubleshooting and cURL health check commands.

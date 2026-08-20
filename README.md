@@ -278,7 +278,7 @@ grounded-insights/
 
 ## 🌐 Live Production Deployments
 
-* **Frontend (Cloudflare Pages)**: [https://grounded-insights.pages.dev](https://grounded-insights.pages.dev)
+* **Frontend (Cloudflare Pages)**: [https://grounded-insights.mohamedbuisness2.workers.dev/](https://grounded-insights.mohamedbuisness2.workers.dev/)
 * **Backend API (Render)**: [https://grounded-o09a.onrender.com](https://grounded-o09a.onrender.com)
   * `/health` → Health status & active LLM provider check
   * `/ask` → Grounded clinical inquiry endpoint

@@ -263,7 +263,7 @@ Automated benchmark against 20 clinical test scenarios (`backend/evaluation.py`)
   * `GET /docs`: OpenAPI / Swagger interactive documentation.
 
 ### 6.2 Frontend Web App (Cloudflare Pages)
-* **URL**: [https://grounded-insights.pages.dev](https://grounded-insights.pages.dev)
+* **URL**: [https://grounded-insights.mohamedbuisness2.workers.dev/](https://grounded-insights.mohamedbuisness2.workers.dev/)
 * **Tech Stack**: React 19, TanStack Start / Router, Vite SSR with Nitro Cloudflare Module.
 * **Features**: Dynamic provider mode badges (`Live Groq`, `Live OpenRouter`, `Live Grok`, `Simulation`), radial confidence gauges, expandable citation passage inspector, and temporary incognito chat.
 
