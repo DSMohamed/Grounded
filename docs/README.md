@@ -93,6 +93,14 @@ docs/
 
 ---
 
+### 🕸️ Knowledge Graph & Codebase Architecture (Graphify)
+* **Interactive Visualization**: [`graphify-out/graph.html`](../graphify-out/graph.html) (open in browser for 2D/3D cluster exploration).
+* **Audit & Cohesion Report**: [`graphify-out/GRAPH_REPORT.md`](../graphify-out/GRAPH_REPORT.md) (community breakdown and modularity scores).
+* **GraphRAG JSON**: [`graphify-out/graph.json`](../graphify-out/graph.json) (**704 nodes · 1,199 edges · 84 communities**).
+* **Top God Nodes**: `cn()` (246 edges), `compilerOptions` (22 edges), `ask_endpoint()` (15 edges), `generate_grounded_answer()` (9 edges), `build_index()` (8 edges).
+
+---
+
 ### 📄 [All-in-One Monolithic Reference Manual](./DOCUMENTATION.md)
 * The complete unfragmented reference document covering all 5 days in a single printable file.
 

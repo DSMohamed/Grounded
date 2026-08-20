@@ -1,0 +1,17 @@
+node_modules
+flutter-app
+ciii
+dist
+dist-ssr
+.output
+.vinxi
+.tanstack
+.nitro
+.wrangler
+chroma_index
+scratch
+backend/__pycache__
+__pycache__
+*.pyc
+*.bin
+*.sqlite3

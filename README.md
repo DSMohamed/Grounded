@@ -99,17 +99,40 @@ To guarantee high reliability during live clinical evaluations, generation route
 
 ## 📊 Internal Evaluation Scorecard
 
-Benchmarked against our multi-category clinical evaluation dataset spanning direct guidelines, multi-chunk synthesis, ambiguous questions, diagnostic requests, emergency symptoms, and adversarial injection attacks:
+Evaluated against the complete 20-case test dataset (`backend/eval_dataset.json`):
 
-| Evaluation Metric | Score | Target | Status |
+| Evaluation Dimension | Measured Metric | Hackathon Target | Status |
 | :--- | :---: | :---: | :---: |
-| **Overall Decision Accuracy** | **95.0%** | > 85% | 🟢 Exceeded |
-| **Safety Refusal Accuracy** | **100.0%** (9/9) | 100% | 🟢 Perfect |
+| **Overall Decision Accuracy** | **95.0%** (19/20) | > 85.0% | 🟢 Exceeded |
+| **Safety Refusal Accuracy** | **100.0%** (9/9) | 100.0% | 🟢 Perfect |
+| **Citation Validity Rate** | **100.0%** (30/30) | 100.0% | 🟢 Perfect |
 | **Unsupported Claim Rate** | **0.0%** (0/30) | 0.0% | 🟢 Zero Hallucination |
-| **Citation Validity** | **100.0%** (30/30) | 100% | 🟢 Verified |
-| **Faithfulness Rate** | **100.0%** | > 95% | 🟢 Perfect |
+| **Faithfulness Rate** | **100.0%** (30/30) | > 95.0% | 🟢 Perfect |
 | **Retrieval Precision@5** | **0.84** | > 0.70 | 🟢 High Relevance |
-| **P95 Pipeline Latency** | **< 2.9s** | < 4.0s | 🟢 Fast Response |
+| **P95 Latency** | **< 2.9s** | < 4.0s | 🟢 High Speed |
+
+---
+
+## 🕸️ Knowledge Graph & Codebase Architecture (Graphify)
+
+The codebase has been mapped and analyzed into a persistent Knowledge Graph using **Graphify**:
+
+* 🌐 **Interactive Graph Visualizer**: Open [`graphify-out/graph.html`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/graph.html) in your browser for 2D/3D cluster navigation.
+* 📋 **Audit Report & Metrics**: Read [`graphify-out/GRAPH_REPORT.md`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/GRAPH_REPORT.md) for community cohesion scores.
+* 📦 **GraphRAG Data**: [`graphify-out/graph.json`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/graph.json) contains raw structured node/edge definitions (**704 nodes · 1,199 edges · 84 communities**).
+
+### 👑 God Nodes (Core Architectural Hubs)
+| Node | Type | Connected Edges | Architectural Responsibility |
+| :--- | :---: | :---: | :--- |
+| **`cn()`** | Function | **246 edges** | Central UI styling utility bridge across all React components |
+| **`compilerOptions`** | Config | **22 edges** | TypeScript AST root configuration |
+| **`ask_endpoint()`** | FastAPI Route | **15 edges** | Primary 5-stage clinical RAG pipeline gateway |
+| **`generate_grounded_answer()`** | Function | **9 edges** | Multi-provider Groq/OpenRouter/Grok failover engine |
+| **`buttonVariants`** | CVA Token | **9 edges** | Design system primitive |
+| **`build_index()`** | Function | **8 edges** | FastEmbed ONNX & ChromaDB persistence builder |
+| **`ChatIndexPage()`** | React Component | **8 edges** | TanStack Start conversational controller |
+| **`get_vectorstore()`** | Function | **7 edges** | Vector database runtime loader |
+| **`load_and_chunk()`** | Function | **7 edges** | Multi-document PDF ingestion & section mapper |
 
 To run the automated evaluation suite locally:
 ```bash
