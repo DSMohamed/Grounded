@@ -39,6 +39,8 @@ lerna-debug.log*
 *.njsproj
 *.sln
 *.sw?
+AGENTS.md
+
 
 # TypeScript & Frontend
 *.tsbuildinfo
