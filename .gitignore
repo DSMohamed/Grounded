@@ -55,23 +55,29 @@ chroma_index/
 .ipynb_checkpoints/
 
 
-# Flutter Mobile App Project
-flutter-app/
+# Flutter Mobile App — Ignore all generated platform boilerplate & dependencies
 ciii/
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
-build/
-android/
-ios/
-linux/
-windows/
-macos/
+flutter-app/android/
+flutter-app/ios/
+flutter-app/windows/
+flutter-app/linux/
+flutter-app/macos/
+flutter-app/web/
+flutter-app/.dart_tool/
+flutter-app/build/
+flutter-app/.flutter-plugins*
+flutter-app/.packages
+flutter-app/.pub/
+flutter-app/.pub-cache/
+flutter-app/.metadata
+flutter-app/.github/
+flutter-app/.idea/
+flutter-app/.vscode/
 *.iml
 *.ipr
 *.iws
+*.docx
+
+
 
 
