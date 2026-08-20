@@ -13,6 +13,7 @@ This document outlines the core architecture of **Grounded** and the explicit te
 5. [ADR 4: Safety & Guardrail Engine (Compiled Regex vs. LLM Classifier)](#5-adr-4-safety--guardrail-engine-compiled-regex-vs-llm-classifier)
 6. [ADR 5: Chunking Strategy (Config A: 500 chars / 75 overlap)](#6-adr-5-chunking-strategy-config-a-500-chars--75-overlap)
 7. [ADR 6: Post-Generation Validation Layer (Citation Integrity Firewall)](#7-adr-6-post-generation-validation-layer-citation-integrity-firewall)
+8. [ADR 7: Knowledge Graph Architecture & Modularity Analysis (Graphify)](#8-adr-7-knowledge-graph-architecture--modularity-analysis-graphify)
 
 ---
 
@@ -146,3 +147,16 @@ evidence_ids = [item["citation"]["chunk_id"] for item in response["supporting_ev
 invented = [cid for cid in evidence_ids if cid not in retrieved_ids]
 ```
 Any claim tied to an invented chunk ID is programmatically stripped from the final JSON payload, guaranteeing **0.0% unsupported claims**.
+
+---
+
+## 8. ADR 7: Knowledge Graph Architecture & Modularity Analysis (Graphify)
+
+### Context:
+In complex full-stack clinical applications, hidden circular dependencies and untracked cross-module imports can cause runtime failures during SSR or async streaming.
+
+### Why Graphify Was Integrated:
+1. **AST-Level Deterministic Verification**: Generated a 704-node, 1,199-edge GraphRAG network mapping all Python backend and TypeScript frontend components without token costs.
+2. **God Node Detection**: Identified central architectural hubs (`cn()`, `ask_endpoint()`, `generate_grounded_answer()`, `build_index()`).
+3. **Zero Import Cycles Verified**: Validated that the codebase contains zero circular dependency deadlocks across its 84 detected communities.
+

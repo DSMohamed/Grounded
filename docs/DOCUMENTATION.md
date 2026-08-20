@@ -37,8 +37,9 @@
    * 6.2 Frontend Web App (TanStack Start / React 19 / Nitro / Cloudflare Pages)
    * 6.3 Mobile Application (Flutter Client with PyNgrok Auto-Tunneling)
    * 6.4 Rehearsed Live Demo Script (The 3 Core Pitch Scenarios)
-7. [Architectural Decision Records (ADRs)](#7-architectural-decision-records-adrs)
-8. [Glossary & File Map](#8-glossary--file-map)
+7. [Knowledge Graph & Architecture Analysis (Graphify)](#7-knowledge-graph--architecture-analysis-graphify)
+8. [Architectural Decision Records (ADRs)](#8-architectural-decision-records-adrs)
+9. [Glossary & File Map](#9-glossary--file-map)
 
 ---
 
@@ -287,7 +288,30 @@ Automated benchmark against 20 clinical test scenarios (`backend/evaluation.py`)
 
 ---
 
-## 7. Architectural Decision Records (ADRs)
+## 7. Knowledge Graph & Architecture Analysis (Graphify)
+
+The codebase has been synthesized into a persistent, multi-dimensional Knowledge Graph using **Graphify**:
+
+* **Interactive HTML Visualizer**: [`graphify-out/graph.html`](../graphify-out/graph.html) (2D/3D cluster graph with real-time node search and community filtering).
+* **Audit & Modularity Report**: [`graphify-out/GRAPH_REPORT.md`](../graphify-out/GRAPH_REPORT.md) (Cohesion scores and community breakdowns).
+* **GraphRAG JSON Data**: [`graphify-out/graph.json`](../graphify-out/graph.json) (**704 nodes · 1,199 edges · 84 communities**).
+
+### Core God Nodes (Architectural Hubs)
+| Node | Type | Connected Edges | Role in System Architecture |
+| :--- | :---: | :---: | :--- |
+| **`cn()`** | Function | **246 edges** | Global Tailwind styling bridge connecting all UI components |
+| **`compilerOptions`** | Config | **22 edges** | TypeScript root compiler AST definitions |
+| **`ask_endpoint()`** | FastAPI Route | **15 edges** | Primary 5-stage clinical RAG orchestration gateway |
+| **`generate_grounded_answer()`** | Function | **9 edges** | Multi-provider LLM failover engine (Groq → OpenRouter → Grok → Sim) |
+| **`buttonVariants`** | CVA Token | **9 edges** | Core design system primitive |
+| **`build_index()`** | Function | **8 edges** | FastEmbed ONNX & ChromaDB persistence manager |
+| **`ChatIndexPage()`** | React Component | **8 edges** | Main conversational controller & state manager |
+| **`get_vectorstore()`** | Function | **7 edges** | Runtime vector store accessor |
+| **`load_and_chunk()`** | Function | **7 edges** | Multi-document PDF ingestion & section mapper |
+
+---
+
+## 8. Architectural Decision Records (ADRs)
 
 | Decision | Choice | Rationale | Alternatives Considered |
 | :--- | :--- | :--- | :--- |
@@ -299,7 +323,7 @@ Automated benchmark against 20 clinical test scenarios (`backend/evaluation.py`)
 
 ---
 
-## 8. Glossary & File Map
+## 9. Glossary & File Map
 
 ```
 grounded-insights/
@@ -324,9 +348,9 @@ grounded-insights/
 │       ├── index.tsx          # Conversational interface
 │       ├── demo.tsx           # Interactive clinical demo cases
 │       └── how-it-works.tsx   # Interactive pipeline architecture diagram
-├── chroma_index/              # Persistent ChromaDB vector database (338 chunks)
+├── graphify-out/              # Knowledge Graph outputs (graph.html, graph.json, report)
+├── docs/                      # Comprehensive technical documentation suite
 ├── render.yaml                # Render Blueprint deployment definition
-├── DOCUMENTATION.md           # This comprehensive documentation document
 ├── README.md                  # Project overview & quickstart guide
 └── requirements.txt           # Python backend dependencies
 ```
@@ -334,3 +358,4 @@ grounded-insights/
 ---
 
 *Authored by Team **El Safe Refusal** for the AI Clinical Decision Support Lite Hackathon.*
+
