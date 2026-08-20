@@ -1,6 +1,6 @@
 """
 Response validation and invented-citation detection.
-Ported from the Day 3 notebook's validate_response() and check_invented_citation().
+Enforces strict schema compliance and citation integrity.
 """
 
 

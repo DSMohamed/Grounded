@@ -1,9 +1,9 @@
 """
 Grounded generation module.
-DAY3_SYSTEM_PROMPT, format_citation, build_context, generate_grounded_answer,
-and the _simulate_llm_response fallback.
-Ported directly from the Day 3 notebook.
+Enforces strict 7-rule grounding prompt, JSON response parsing,
+and multi-provider failover routing (Groq -> OpenRouter -> Grok -> Simulation).
 """
+
 
 import json
 import os

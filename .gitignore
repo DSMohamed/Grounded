@@ -51,6 +51,9 @@ __pycache__/
 backend/__pycache__/
 chroma_index/
 *.docx
+*.ipynb
+.ipynb_checkpoints/
+
 
 # Flutter Mobile App Project
 flutter-app/

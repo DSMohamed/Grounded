@@ -1,7 +1,6 @@
 """
 Input risk classification.
 Regex-based with three tiers: Allowed / Needs Caution / Refuse-Redirect.
-Ported directly from the Day 3 notebook.
 """
 
 import re
@@ -84,7 +83,7 @@ def classify_risk(question: str) -> dict:
             "reason": "Personalized treatment selection request — requires clinical assessment.",
         }
 
-    # Diagnosis request (Slide 7: "Do I have melanoma?" -> Refuse)
+    # Direct diagnostic requests
     if any(p.search(question) for p in [
         re.compile(r"\bdo i have (cancer|melanoma|carcinoma|a tumor)\b", re.IGNORECASE),
         re.compile(r"\bdiagnose me\b", re.IGNORECASE),
@@ -95,7 +94,7 @@ def classify_risk(question: str) -> dict:
             "reason": "Direct diagnostic request — not a diagnostic engine. Consult a clinician.",
         }
 
-    # Procedural / biopsy request (Slide 7: "Should I biopsy my mole?" -> Refuse)
+    # Procedural / biopsy decisions
     if any(p.search(question) for p in [
         re.compile(r"\bshould i (get a )?biopsy\b", re.IGNORECASE),
         re.compile(r"\bbiopsy (this|my) (mole|spot|lesion)\b", re.IGNORECASE),
