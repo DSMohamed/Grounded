@@ -63,12 +63,45 @@ def build_context(chunks: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
+def _extract_or_estimate_usage(data: dict | None, context: str, output_text: str) -> dict:
+    """Extract usage from LLM response payload or estimate from word counts."""
+    usage = (data or {}).get("usage", {}) if isinstance(data, dict) else {}
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    total_tokens = usage.get("total_tokens")
+
+    if not prompt_tokens:
+        prompt_tokens = max(40, int(len(context.split()) * 1.3) + 120)
+    if not completion_tokens:
+        completion_tokens = max(15, int(len(output_text.split()) * 1.3))
+    if not total_tokens:
+        total_tokens = prompt_tokens + completion_tokens
+
+    max_context = 8192
+    remaining_tokens = max(0, max_context - total_tokens)
+
+    return {
+        "prompt_tokens": int(prompt_tokens),
+        "completion_tokens": int(completion_tokens),
+        "total_tokens": int(total_tokens),
+        "max_context_tokens": int(max_context),
+        "remaining_tokens": int(remaining_tokens),
+    }
+
+
 def _simulate_llm_response(question: str, chunks: list[dict]) -> dict:
     """
     Fallback when no API key is set.
     Returns a structured response using the top retrieved chunks.
     """
-    top = chunks[0]
+    top = chunks[0] if chunks else {
+        "score": 0.5,
+        "document": "USPSTF Guideline",
+        "section": "General Recommendation",
+        "page": 1,
+        "chunk_id": "c0001",
+        "text": "The USPSTF recommends counseling on sun protection."
+    }
     confidence = (
         "High" if top["score"] >= 0.6
         else "Medium" if top["score"] >= 0.45
@@ -93,13 +126,17 @@ def _simulate_llm_response(question: str, chunks: list[dict]) -> dict:
             "passage": c["text"],
         })
 
+    rec_text = (
+        f'Based on the retrieved guideline text, the response to '
+        f'"{question.strip()}" is grounded in {top["section"]} '
+        f'(page {top["page"]}): {evidence[0]["claim"] if evidence else ""}'
+    )
+    context_text = build_context(chunks)
+    token_usage = _extract_or_estimate_usage(None, context_text, rec_text)
+
     return {
         "status": "Answered",
-        "recommendation": (
-            f'Based on the retrieved guideline text, the response to '
-            f'"{question.strip()}" is grounded in {top["section"]} '
-            f'(page {top["page"]}): {evidence[0]["claim"]}'
-        ),
+        "recommendation": rec_text,
         "supporting_evidence": evidence,
         "confidence": confidence,
         "missing_information": (
@@ -108,6 +145,7 @@ def _simulate_llm_response(question: str, chunks: list[dict]) -> dict:
             else "Retrieval confidence is not high; verify against the full guideline text before clinical use."
         ),
         "safety_note": "This summarizes guideline text only. It does not account for individual patient factors.",
+        "token_usage": token_usage,
     }
 
 
@@ -252,7 +290,8 @@ def generate_grounded_answer(
                 timeout=4.0,
             )
             if r.status_code == 200:
-                raw = r.json()["choices"][0]["message"]["content"]
+                res_json = r.json()
+                raw = res_json["choices"][0]["message"]["content"]
                 response = _parse_llm_json(raw)
 
                 chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
@@ -261,6 +300,7 @@ def generate_grounded_answer(
                     if cid in chunk_map:
                         item["passage"] = chunk_map[cid]
 
+                response["token_usage"] = _extract_or_estimate_usage(res_json, context, raw)
                 return response, "live (groq)"
             else:
                 print(f"[generation] Groq API returned status {r.status_code} ({r.text[:80]}), trying next provider...")
@@ -301,7 +341,8 @@ def generate_grounded_answer(
                 timeout=4.0,
             )
             if r.status_code == 200:
-                raw = r.json()["choices"][0]["message"]["content"]
+                res_json = r.json()
+                raw = res_json["choices"][0]["message"]["content"]
                 response = _parse_llm_json(raw)
 
                 chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
@@ -310,6 +351,7 @@ def generate_grounded_answer(
                     if cid in chunk_map:
                         item["passage"] = chunk_map[cid]
 
+                response["token_usage"] = _extract_or_estimate_usage(res_json, context, raw)
                 return response, "live (openrouter)"
             else:
                 print(f"[generation] OpenRouter returned status {r.status_code} ({r.text[:80]}), trying next provider...")
@@ -348,7 +390,8 @@ def generate_grounded_answer(
                 timeout=4.0,
             )
             if r.status_code == 200:
-                raw = r.json()["choices"][0]["message"]["content"]
+                res_json = r.json()
+                raw = res_json["choices"][0]["message"]["content"]
                 response = _parse_llm_json(raw)
 
                 chunk_map = {c["chunk_id"]: c["text"] for c in chunks}
@@ -357,6 +400,7 @@ def generate_grounded_answer(
                     if cid in chunk_map:
                         item["passage"] = chunk_map[cid]
 
+                response["token_usage"] = _extract_or_estimate_usage(res_json, context, raw)
                 return response, "live (grok)"
             else:
                 print(f"[generation] Grok API returned status {r.status_code} ({r.text[:80]}), falling back to simulation.")

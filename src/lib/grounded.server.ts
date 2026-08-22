@@ -272,6 +272,8 @@ export async function runPipeline(question: string): Promise<AskResponse> {
   const { tier, reason } = classifyRisk(question);
 
   if (tier === "Refuse/Redirect") {
+    const promptToks = Math.max(20, Math.floor(question.split(/\s+/).length * 1.3) + 40);
+    const compToks = 35;
     return {
       status: "Safety Refusal",
       recommendation:
@@ -288,6 +290,13 @@ export async function runPipeline(question: string): Promise<AskResponse> {
       top_score: 0,
       mode,
       validation: { citations_verified: 0, invented_citations: [] },
+      token_usage: {
+        prompt_tokens: promptToks,
+        completion_tokens: compToks,
+        total_tokens: promptToks + compToks,
+        max_context_tokens: 8192,
+        remaining_tokens: 8192 - (promptToks + compToks),
+      },
     };
   }
 
@@ -295,6 +304,8 @@ export async function runPipeline(question: string): Promise<AskResponse> {
   const top = chunks[0]?.score ?? 0;
 
   if (top < WEAK_THRESHOLD) {
+    const promptToks = Math.max(60, Math.floor(question.split(/\s+/).length * 1.3) + 120);
+    const compToks = 45;
     return {
       status: "Insufficient Evidence",
       recommendation:
@@ -311,6 +322,13 @@ export async function runPipeline(question: string): Promise<AskResponse> {
       top_score: top,
       mode,
       validation: { citations_verified: 0, invented_citations: [] },
+      token_usage: {
+        prompt_tokens: promptToks,
+        completion_tokens: compToks,
+        total_tokens: promptToks + compToks,
+        max_context_tokens: 8192,
+        remaining_tokens: 8192 - (promptToks + compToks),
+      },
     };
   }
 
@@ -319,6 +337,13 @@ export async function runPipeline(question: string): Promise<AskResponse> {
   const evidence = gen.supporting_evidence.filter(
     (e) => !validation.invented_citations.includes(e.citation.chunk_id),
   );
+
+  const promptToks = Math.max(
+    100,
+    Math.floor(chunks.reduce((acc, c) => acc + c.text.split(/\s+/).length, 0) * 1.3) + 120,
+  );
+  const compToks = Math.max(30, Math.floor(gen.recommendation.split(/\s+/).length * 1.3));
+  const totalToks = promptToks + compToks;
 
   return {
     ...gen,
@@ -334,5 +359,12 @@ export async function runPipeline(question: string): Promise<AskResponse> {
     top_score: top,
     mode,
     validation,
+    token_usage: {
+      prompt_tokens: promptToks,
+      completion_tokens: compToks,
+      total_tokens: totalToks,
+      max_context_tokens: 8192,
+      remaining_tokens: 8192 - totalToks,
+    },
   };
 }

@@ -104,6 +104,14 @@ class ValidationModel(BaseModel):
     invented_citations: list[str]
 
 
+class TokenUsageModel(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    max_context_tokens: int = 8192
+    remaining_tokens: int
+
+
 class AskResponse(BaseModel):
     status: str
     recommendation: str
@@ -118,6 +126,7 @@ class AskResponse(BaseModel):
     top_score: float
     mode: str
     validation: ValidationModel
+    token_usage: TokenUsageModel | None = None
 
 
 class HealthResponse(BaseModel):
@@ -172,6 +181,8 @@ def ask_endpoint(req: AskRequest):
         risk = classify_risk(question)
 
         if risk["tier"] == "Refuse/Redirect":
+            prompt_toks = max(20, int(len(question.split()) * 1.3) + 40)
+            comp_toks = 35
             return AskResponse(
                 status="Safety Refusal",
                 recommendation="This question is outside what this evidence-bound assistant will answer.",
@@ -189,6 +200,13 @@ def ask_endpoint(req: AskRequest):
                 top_score=0,
                 mode=mode,
                 validation=ValidationModel(citations_verified=0, invented_citations=[]),
+                token_usage=TokenUsageModel(
+                    prompt_tokens=prompt_toks,
+                    completion_tokens=comp_toks,
+                    total_tokens=prompt_toks + comp_toks,
+                    max_context_tokens=8192,
+                    remaining_tokens=8192 - (prompt_toks + comp_toks),
+                ),
             )
 
         # 2. Retrieve
@@ -197,6 +215,8 @@ def ask_endpoint(req: AskRequest):
 
         # 3. Weak-retrieval gate
         if not chunks or top_score < WEAK_THRESHOLD:
+            prompt_toks = max(60, int(len(question.split()) * 1.3) + 120)
+            comp_toks = 45
             return AskResponse(
                 status="Insufficient Evidence",
                 recommendation=(
@@ -223,6 +243,13 @@ def ask_endpoint(req: AskRequest):
                 top_score=top_score,
                 mode=mode,
                 validation=ValidationModel(citations_verified=0, invented_citations=[]),
+                token_usage=TokenUsageModel(
+                    prompt_tokens=prompt_toks,
+                    completion_tokens=comp_toks,
+                    total_tokens=prompt_toks + comp_toks,
+                    max_context_tokens=8192,
+                    remaining_tokens=8192 - (prompt_toks + comp_toks),
+                ),
             )
 
         # 4. Generate
@@ -246,6 +273,13 @@ def ask_endpoint(req: AskRequest):
                 "general guideline content and is not a diagnosis or personal "
                 "medical advice."
             )
+
+        token_usage_raw = gen_response.get("token_usage")
+        token_usage_obj = (
+            TokenUsageModel(**token_usage_raw)
+            if isinstance(token_usage_raw, dict)
+            else None
+        )
 
         return AskResponse(
             status=gen_response.get("status", "Answered"),
@@ -273,6 +307,7 @@ def ask_endpoint(req: AskRequest):
                 citations_verified=validation["citations_verified"],
                 invented_citations=validation["invented_citations"],
             ),
+            token_usage=token_usage_obj,
         )
 
     except Exception as e:

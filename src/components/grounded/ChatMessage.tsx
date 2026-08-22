@@ -4,10 +4,11 @@ import {
   ShieldAlert,
   FileSearch,
   BadgeCheck,
-  Check,
   BookOpen,
+  Cpu,
+  Layers,
 } from "lucide-react";
-import type { ChatMessage as ChatMessageType, AskResponse } from "@/lib/grounded.types";
+import type { ChatMessage as ChatMessageType, AskResponse, TokenUsage } from "@/lib/grounded.types";
 import { StageTracker } from "./StageTracker";
 import { cn } from "@/lib/utils";
 
@@ -23,11 +24,16 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 /* ── User bubble ───────────────────────────────────────────────────────── */
 
 function UserBubble({ text }: { text: string }) {
+  const estimatedTokens = Math.max(8, Math.floor(text.split(/\s+/).filter(Boolean).length * 1.3));
+
   return (
-    <div className="flex justify-end animate-fade-up">
-      <div className="max-w-[88%] sm:max-w-[75%] rounded-2xl rounded-br-md bg-evidence/15 border border-evidence/20 px-4 py-2.5 sm:px-5 sm:py-3.5">
+    <div className="flex flex-col items-end gap-1 animate-fade-up">
+      <div className="max-w-[88%] sm:max-w-[75%] rounded-2xl rounded-br-md bg-evidence/15 border border-evidence/20 px-4 py-2.5 sm:px-5 sm:py-3.5 shadow-sm">
         <p className="text-[14px] sm:text-[15px] leading-relaxed text-foreground">{text}</p>
       </div>
+      <span className="mr-1 font-mono text-[9.5px] text-muted-foreground/60 tabular-nums">
+        ~{estimatedTokens} input tokens
+      </span>
     </div>
   );
 }
@@ -36,9 +42,11 @@ function UserBubble({ text }: { text: string }) {
 
 function AssistantBubble({ message }: { message: ChatMessageType }) {
   const [showEvidence, setShowEvidence] = useState(false);
+  const [showTokenDetails, setShowTokenDetails] = useState(false);
   const [expandedClaim, setExpandedClaim] = useState<number | null>(null);
   const isLoading = message.stage !== undefined && message.stage >= 0 && message.stage < 5;
   const result = message.response;
+  const tokenUsage = getOrEstimateTokens(result, message.content);
 
   return (
     <div className="flex gap-3 animate-fade-up">
@@ -52,8 +60,8 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
 
       {/* Content */}
       <div className="min-w-0 flex-1 space-y-3">
-        {/* Label */}
-        <div className="flex items-center gap-2">
+        {/* Label and Header Metadata */}
+        <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-[11px] font-medium text-evidence">Grounded</span>
           {result && (
             <StatusTag status={result.status} />
@@ -63,7 +71,29 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
               {message.elapsedMs >= 1000 ? `${(message.elapsedMs / 1000).toFixed(1)}s` : `${message.elapsedMs}ms`}
             </span>
           )}
+          {tokenUsage && (
+            <button
+              onClick={() => setShowTokenDetails(!showTokenDetails)}
+              title="Click to view full token usage breakdown and remaining context budget"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-[10px] tabular-nums transition-colors cursor-pointer",
+                showTokenDetails
+                  ? "border-cyan-500/50 bg-cyan-500/15 text-cyan-400 font-medium"
+                  : "border-cyan-500/25 bg-cyan-500/5 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500/40"
+              )}
+            >
+              <Cpu className="size-3 shrink-0 opacity-80" />
+              <span>{tokenUsage.total_tokens.toLocaleString()} tokens used</span>
+              <span className="opacity-50">·</span>
+              <span className="font-semibold text-foreground/80">{tokenUsage.remaining_tokens.toLocaleString()} rem</span>
+            </button>
+          )}
         </div>
+
+        {/* Token Details Expansion Drawer */}
+        {tokenUsage && showTokenDetails && (
+          <TokenDetailsPanel usage={tokenUsage} onClose={() => setShowTokenDetails(false)} />
+        )}
 
         {/* Loading state — pipeline tracker */}
         {isLoading && (
@@ -76,7 +106,7 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
         {result && (
           <div className="space-y-3">
             {/* Recommendation text */}
-            <div className="rounded-xl bg-card/60 border border-border/60 p-4">
+            <div className="rounded-xl bg-card/60 border border-border/60 p-4 shadow-sm">
               <p className="text-[15px] leading-relaxed text-foreground">
                 {result.recommendation}
               </p>
@@ -158,10 +188,88 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
                 <MetaChip label={`risk: ${result.risk_tier}`} />
                 <MetaChip label={`score: ${result.top_score.toFixed(3)}`} />
                 <MetaChip label={`mode: ${result.mode}`} />
+                {tokenUsage && (
+                  <span
+                    onClick={() => setShowTokenDetails(!showTokenDetails)}
+                    className="cursor-pointer rounded-md bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 font-mono text-[10px] text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/15"
+                  >
+                    {tokenUsage.total_tokens.toLocaleString()} tok ({((tokenUsage.total_tokens / tokenUsage.max_context_tokens) * 100).toFixed(1)}% ctx)
+                  </span>
+                )}
               </div>
             )}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Token details drawer ────────────────────────────────────────────────── */
+
+function TokenDetailsPanel({ usage, onClose }: { usage: TokenUsage; onClose: () => void }) {
+  const percentUsed = Math.min(100, Math.max(1, (usage.total_tokens / usage.max_context_tokens) * 100));
+
+  return (
+    <div className="rounded-xl border border-cyan-500/30 bg-card/80 p-3.5 shadow-md backdrop-blur-sm animate-fade-up space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Layers className="size-4 text-cyan-500" />
+          <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-foreground">
+            Token Usage & Context Budget
+          </span>
+        </div>
+        <button
+          onClick={onClose}
+          className="font-mono text-[10px] text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded hover:bg-muted/30"
+        >
+          Close
+        </button>
+      </div>
+
+      {/* Grid of stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+        <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">Input (Prompt)</div>
+          <div className="font-mono text-[13px] font-semibold text-foreground mt-0.5 tabular-nums">
+            {usage.prompt_tokens.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">Output (Completion)</div>
+          <div className="font-mono text-[13px] font-semibold text-evidence mt-0.5 tabular-nums">
+            {usage.completion_tokens.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">Total Consumed</div>
+          <div className="font-mono text-[13px] font-semibold text-cyan-600 dark:text-cyan-400 mt-0.5 tabular-nums">
+            {usage.total_tokens.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">Tokens Remaining</div>
+          <div className="font-mono text-[13px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
+            {usage.remaining_tokens.toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
+          <span>Context window headroom</span>
+          <span>{usage.remaining_tokens.toLocaleString()} of {usage.max_context_tokens.toLocaleString()} tokens left ({percentUsed.toFixed(1)}% used)</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-cyan-500 via-evidence to-emerald-500 transition-all duration-500"
+            style={{ width: `${percentUsed}%` }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -212,4 +320,29 @@ function RefusalDetail({ result }: { result: AskResponse }) {
       </div>
     </div>
   );
+}
+
+function getOrEstimateTokens(result?: AskResponse, fallbackText?: string): TokenUsage | null {
+  if (result?.token_usage) return result.token_usage;
+  if (!result && !fallbackText) return null;
+
+  const promptText =
+    (result?.supporting_evidence?.map((e) => e.claim + " " + (e.passage || "")).join(" ") || "") +
+    " " +
+    (fallbackText || "");
+  const compText = result?.recommendation || fallbackText || "";
+
+  const prompt_tokens = Math.max(40, Math.floor(promptText.split(/\s+/).filter(Boolean).length * 1.3) + 120);
+  const completion_tokens = Math.max(15, Math.floor(compText.split(/\s+/).filter(Boolean).length * 1.3));
+  const total_tokens = prompt_tokens + completion_tokens;
+  const max_context_tokens = 8192;
+  const remaining_tokens = Math.max(0, max_context_tokens - total_tokens);
+
+  return {
+    prompt_tokens,
+    completion_tokens,
+    total_tokens,
+    max_context_tokens,
+    remaining_tokens,
+  };
 }

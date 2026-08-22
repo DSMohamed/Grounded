@@ -28,6 +28,14 @@ export interface RetrievedChunk {
   text: string;
 }
 
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  max_context_tokens: number;
+  remaining_tokens: number;
+}
+
 export interface AskResponse {
   status: Status;
   recommendation: string;
@@ -42,6 +50,7 @@ export interface AskResponse {
   top_score: number;
   mode: "live" | "simulated";
   validation: { citations_verified: number; invented_citations: string[] };
+  token_usage?: TokenUsage;
 }
 
 export const DEMO_CASES = [
