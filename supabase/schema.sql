@@ -72,6 +72,21 @@ create policy "Users can insert messages in their conversations"
     )
   );
 
+create policy "Users can update messages in their conversations"
+  on public.messages for update
+  using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = messages.conversation_id and c.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.conversations c
+      where c.id = messages.conversation_id and c.user_id = auth.uid()
+    )
+  );
+
 create policy "Users can delete messages in their conversations"
   on public.messages for delete
   using (

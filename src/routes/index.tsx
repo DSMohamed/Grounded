@@ -81,17 +81,94 @@ function loadSavedConversations(userId?: string | null): Conversation[] {
     const raw = localStorage.getItem(key);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((c: any) => ({
+      id: String(c.id),
+      title: String(c.title || "Consultation"),
+      createdAt: typeof c.createdAt === "number" && !isNaN(c.createdAt)
+        ? c.createdAt
+        : new Date(c.createdAt || Date.now()).getTime(),
+      updatedAt: typeof c.updatedAt === "number" && !isNaN(c.updatedAt)
+        ? c.updatedAt
+        : new Date(c.updatedAt || c.createdAt || Date.now()).getTime(),
+      messages: Array.isArray(c.messages)
+        ? c.messages.map((m: any) => ({
+            id: String(m.id),
+            role: m.role as "user" | "assistant",
+            content: String(m.content || ""),
+            response: m.response || undefined,
+            elapsedMs: typeof m.elapsedMs === "number" ? m.elapsedMs : undefined,
+            stage: typeof m.stage === "number" ? m.stage : undefined,
+            timestamp: typeof m.timestamp === "number" && !isNaN(m.timestamp)
+              ? m.timestamp
+              : new Date(m.timestamp || m.created_at || Date.now()).getTime(),
+          }))
+        : [],
+    }));
   } catch {
     return [];
   }
+}
+
+function mergeConversations(local: Conversation[], cloud: Conversation[]): Conversation[] {
+  const map = new Map<string, Conversation>();
+
+  // Add all local conversations
+  for (const c of local) {
+    if (c && c.id) {
+      map.set(c.id, {
+        ...c,
+        messages: Array.isArray(c.messages) ? [...c.messages] : [],
+      });
+    }
+  }
+
+  // Merge with cloud conversations
+  for (const c of cloud) {
+    if (!c || !c.id) continue;
+    const existing = map.get(c.id);
+
+    if (!existing) {
+      map.set(c.id, {
+        ...c,
+        messages: Array.isArray(c.messages) ? [...c.messages] : [],
+      });
+    } else {
+      // Merge messages by unique id
+      const msgMap = new Map<string, ChatMessageType>();
+      for (const m of existing.messages) {
+        if (m && m.id) msgMap.set(m.id, m);
+      }
+      for (const m of (c.messages || [])) {
+        if (m && m.id) {
+          const curr = msgMap.get(m.id);
+          // Prefer message with full response if available
+          if (!curr || (m.response && !curr.response)) {
+            msgMap.set(m.id, m);
+          }
+        }
+      }
+      const mergedMsgs = Array.from(msgMap.values()).sort(
+        (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+      );
+
+      map.set(c.id, {
+        ...existing,
+        title: existing.title || c.title,
+        updatedAt: Math.max(existing.updatedAt, c.updatedAt),
+        messages: mergedMsgs,
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
 function saveConversations(convos: Conversation[], userId?: string | null) {
   if (typeof window === "undefined") return;
   try {
     const key = getStorageKey(userId);
-    localStorage.setItem(key, JSON.stringify(convos.slice(0, 30)));
+    localStorage.setItem(key, JSON.stringify(convos.slice(0, 50)));
   } catch (e) {
     console.error("Failed to save conversations:", e);
   }
@@ -117,6 +194,12 @@ function ChatIndexPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserIdRef = useRef<string | null | undefined>(undefined);
+  const activeIdRef = useRef<string | null>(activeId);
+
+  // Keep activeIdRef in sync
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   // 1. Supabase Auth state listener
   useEffect(() => {
@@ -143,31 +226,31 @@ function ChatIndexPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 2. Load conversations ONLY when user ID actually changes (avoids tab switch / token refresh loss)
+  // 2. Load and merge conversations when user ID changes
   useEffect(() => {
     const uid = user?.id ?? null;
     if (currentUserIdRef.current === uid) return;
     currentUserIdRef.current = uid;
 
     if (user && isSupabaseConfigured) {
+      const localSaved = loadSavedConversations(user.id);
+      if (localSaved.length > 0) {
+        setConversations(localSaved);
+      }
+
       fetchCloudConversations(user.id).then((cloudConvos) => {
-        if (cloudConvos.length > 0) {
-          setConversations(cloudConvos);
-          saveConversations(cloudConvos, user.id);
-          const savedActive = loadActiveId(user.id);
-          const matched = cloudConvos.find((c) => c.id === savedActive);
-          const nextActive = matched ? matched.id : (cloudConvos[0]?.id ?? null);
-          setActiveId(nextActive);
-          saveActiveId(nextActive, user.id);
-        } else {
-          const userSaved = loadSavedConversations(user.id);
-          setConversations(userSaved);
-          const savedActive = loadActiveId(user.id);
-          const matched = userSaved.find((c) => c.id === savedActive);
-          const nextActive = matched ? matched.id : (userSaved[0]?.id ?? null);
-          setActiveId(nextActive);
-          saveActiveId(nextActive, user.id);
-        }
+        const merged = mergeConversations(localSaved, cloudConvos);
+        setConversations(merged);
+        saveConversations(merged, user.id);
+
+        // Sync any local conversations to cloud that weren't synced yet
+        merged.forEach((c) => syncConversationToCloud(c, user.id));
+
+        const savedActive = loadActiveId(user.id);
+        const matched = merged.find((c) => c.id === savedActive);
+        const nextActive = matched ? matched.id : (merged[0]?.id ?? null);
+        setActiveId(nextActive);
+        saveActiveId(nextActive, user.id);
       });
     } else {
       const guestSaved = loadSavedConversations(null);
@@ -207,6 +290,7 @@ function ChatIndexPage() {
     if (isTemporaryChat) {
       setTempMessages([]);
     } else {
+      activeIdRef.current = null;
       setActiveId(null);
       saveActiveId(null, user?.id);
     }
@@ -235,6 +319,7 @@ function ChatIndexPage() {
 
     setActiveId((curr) => {
       const nextId = curr === id ? null : curr;
+      activeIdRef.current = nextId;
       saveActiveId(nextId, user?.id);
       return nextId;
     });
@@ -247,6 +332,7 @@ function ChatIndexPage() {
       const guestSaved = loadSavedConversations(null);
       setConversations(guestSaved);
       const nextActive = guestSaved[0]?.id ?? null;
+      activeIdRef.current = nextActive;
       setActiveId(nextActive);
       saveActiveId(nextActive, null);
     }
@@ -350,12 +436,13 @@ function ChatIndexPage() {
       }
 
       // ── Scenario B: Standard Chat (Persisted to Cloud or Isolated Local) ───────
-      let currentConvoId = activeId;
+      let currentConvoId = activeIdRef.current;
       let targetConvo: Conversation;
 
       if (!currentConvoId) {
         const newId = `convo_${Date.now()}`;
         currentConvoId = newId;
+        activeIdRef.current = newId;
         const title = q.length > 45 ? `${q.slice(0, 42)}...` : q;
         targetConvo = {
           id: newId,
@@ -365,7 +452,7 @@ function ChatIndexPage() {
           updatedAt: Date.now(),
         };
         setConversations((prev) => {
-          const next = [targetConvo, ...prev];
+          const next = [targetConvo, ...prev.filter((c) => c.id !== newId)];
           saveConversations(next, user?.id);
           return next;
         });
@@ -373,18 +460,33 @@ function ChatIndexPage() {
         saveActiveId(newId, user?.id);
       } else {
         setConversations((prev) => {
-          const next = prev.map((c) => {
-            if (c.id === currentConvoId) {
-              return {
-                ...c,
-                messages: [...c.messages, userMsg, initialAsstMsg],
-                updatedAt: Date.now(),
-              };
-            }
-            return c;
-          });
-          saveConversations(next, user?.id);
-          return next;
+          const existing = prev.find((c) => c.id === currentConvoId);
+          if (existing) {
+            const next = prev.map((c) => {
+              if (c.id === currentConvoId) {
+                return {
+                  ...c,
+                  messages: [...c.messages, userMsg, initialAsstMsg],
+                  updatedAt: Date.now(),
+                };
+              }
+              return c;
+            });
+            saveConversations(next, user?.id);
+            return next;
+          } else {
+            const title = q.length > 45 ? `${q.slice(0, 42)}...` : q;
+            const newConvo: Conversation = {
+              id: currentConvoId,
+              title,
+              messages: [userMsg, initialAsstMsg],
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+            };
+            const next = [newConvo, ...prev];
+            saveConversations(next, user?.id);
+            return next;
+          }
         });
       }
 
@@ -506,7 +608,7 @@ function ChatIndexPage() {
         setIsProcessing(false);
       }
     },
-    [activeId, isProcessing, askFn, user, isTemporaryChat]
+    [isProcessing, askFn, user, isTemporaryChat]
   );
 
   return (

@@ -26,7 +26,8 @@ export async function fetchCloudConversations(userId: string): Promise<Conversat
       .from("conversations")
       .select("*")
       .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .limit(100);
 
     if (convosError || !convosData) {
       console.warn("[supabase] Failed to fetch conversations:", convosError);
@@ -42,7 +43,8 @@ export async function fetchCloudConversations(userId: string): Promise<Conversat
       .from("messages")
       .select("*")
       .in("conversation_id", convoIds)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(2000);
 
     if (msgsError) {
       console.warn("[supabase] Failed to fetch messages:", msgsError);
@@ -54,21 +56,24 @@ export async function fetchCloudConversations(userId: string): Promise<Conversat
       list.push({
         id: m.id,
         role: m.role as "user" | "assistant",
-        content: m.content,
+        content: m.content || "",
         response: m.response || undefined,
         elapsedMs: m.elapsed_ms || undefined,
-        timestamp: new Date(m.created_at).getTime(),
+        timestamp: m.created_at ? new Date(m.created_at).getTime() : Date.now(),
       });
       messagesByConvo[m.conversation_id] = list;
     });
 
-    return convosData.map((c) => ({
-      id: c.id,
-      title: c.title,
-      messages: messagesByConvo[c.id] || [],
-      createdAt: new Date(c.created_at).getTime(),
-      updatedAt: new Date(c.updated_at).getTime(),
-    }));
+    return convosData.map((c) => {
+      const msgs = (messagesByConvo[c.id] || []).sort((a, b) => a.timestamp - b.timestamp);
+      return {
+        id: c.id,
+        title: c.title || "Consultation",
+        messages: msgs,
+        createdAt: c.created_at ? new Date(c.created_at).getTime() : Date.now(),
+        updatedAt: c.updated_at ? new Date(c.updated_at).getTime() : Date.now(),
+      };
+    });
   } catch (err) {
     console.error("[supabase] Error fetching cloud conversations:", err);
     return [];
@@ -82,15 +87,20 @@ export async function syncConversationToCloud(
   if (!supabase || !userId) return;
 
   try {
-    // Upsert conversation header
-    await supabase.from("conversations").upsert({
+    // 1. Upsert conversation header
+    const { error: convoError } = await supabase.from("conversations").upsert({
       id: convo.id,
       user_id: userId,
       title: convo.title,
-      updated_at: new Date(convo.updatedAt).toISOString(),
+      updated_at: new Date(convo.updatedAt || Date.now()).toISOString(),
     });
 
-    // Upsert any new messages
+    if (convoError) {
+      console.warn("[supabase] Error upserting conversation:", convoError);
+      return;
+    }
+
+    // 2. Upsert messages
     if (convo.messages.length > 0) {
       const rows = convo.messages.map((m) => ({
         id: m.id,
@@ -99,10 +109,16 @@ export async function syncConversationToCloud(
         content: m.content || m.response?.recommendation || "",
         response: m.response ? JSON.parse(JSON.stringify(m.response)) : null,
         elapsed_ms: m.elapsedMs || null,
-        created_at: new Date(m.timestamp).toISOString(),
+        created_at: new Date(m.timestamp || Date.now()).toISOString(),
       }));
 
-      await supabase.from("messages").upsert(rows, { onConflict: "id" });
+      const { error: msgsError } = await supabase
+        .from("messages")
+        .upsert(rows, { onConflict: "id" });
+
+      if (msgsError) {
+        console.warn("[supabase] Error upserting messages:", msgsError);
+      }
     }
   } catch (err) {
     console.warn("[supabase] Error syncing conversation to cloud:", err);

@@ -38,12 +38,17 @@ export function ChatSidebar({
   mobileOpen,
   onCloseMobile,
 }: ChatSidebarProps) {
-  // Group conversations by time
+  // Group conversations by time safely
   const now = Date.now();
   const dayMs = 86400000;
-  const today = conversations.filter((c) => now - c.updatedAt < dayMs);
-  const week = conversations.filter((c) => now - c.updatedAt >= dayMs && now - c.updatedAt < 7 * dayMs);
-  const older = conversations.filter((c) => now - c.updatedAt >= 7 * dayMs);
+  const getTs = (c: Conversation) => {
+    if (typeof c.updatedAt === "number" && !isNaN(c.updatedAt)) return c.updatedAt;
+    const parsed = new Date(c.updatedAt || c.createdAt || Date.now()).getTime();
+    return isNaN(parsed) ? Date.now() : parsed;
+  };
+  const today = conversations.filter((c) => now - getTs(c) < dayMs);
+  const week = conversations.filter((c) => now - getTs(c) >= dayMs && now - getTs(c) < 7 * dayMs);
+  const older = conversations.filter((c) => now - getTs(c) >= 7 * dayMs);
 
   const sidebarContent = (
     <div className="flex h-full w-64 flex-col border-r border-border/40 bg-[var(--sidebar-bg)]">
