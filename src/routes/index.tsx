@@ -3,7 +3,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ask } from "@/lib/grounded.functions";
 import type { Conversation, ChatMessage as ChatMessageType, AskResponse } from "@/lib/grounded.types";
-import { STARTER_PROMPTS } from "@/lib/grounded.types";
 import { ChatSidebar } from "@/components/grounded/ChatSidebar";
 import { ChatMessage } from "@/components/grounded/ChatMessage";
 import { ChatInput } from "@/components/grounded/ChatInput";
@@ -624,24 +623,24 @@ function ChatIndexPage() {
         {/* Chat message stream or Empty State */}
         <div className="flex-1 overflow-y-auto px-4 py-6">
           {currentDisplayMessages.length === 0 ? (
-            /* Empty State: ChatGPT Hero + Starter Prompts */
-            <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center text-center">
-              <div className="flex size-14 items-center justify-center rounded-2xl bg-evidence/15 border border-evidence/30 shadow-lg mb-6">
-                <GroundedLogo className="size-8 text-evidence" />
+            /* Empty State: Professional Hero */
+            <div className="mx-auto flex h-full max-w-2xl flex-col items-center justify-center text-center px-4 animate-fade-up">
+              <div className="flex size-14 items-center justify-center rounded-2xl bg-evidence/10 border border-evidence/25 shadow-sm mb-5">
+                <GroundedLogo className="size-7 text-evidence" />
               </div>
 
               <h1 className="font-serif text-3xl sm:text-4xl font-semibold tracking-tight text-foreground">
                 {isTemporaryChat ? "Temporary Consultation" : "Grounded Clinical Intelligence"}
               </h1>
-              <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+              <p className="mt-3 max-w-lg text-[15px] leading-relaxed text-muted-foreground">
                 {isTemporaryChat
                   ? "This consultation is private and ephemeral. It will not be stored in your history or saved to the cloud."
-                  : "Ask behavioral counseling and prevention questions strictly bound to verified USPSTF guideline evidence. Every claim carries an inspectable citation."}
+                  : "Evidence-bound clinical counseling assistant strictly grounded in the USPSTF guideline with inspectable citations."}
               </p>
 
               {/* Document scope badges */}
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground shadow-sm">
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground shadow-xs">
                   <FileText className="size-3 text-evidence" />
                   USPSTF Skin Cancer Counseling
                 </span>
@@ -651,32 +650,10 @@ function ChatIndexPage() {
                     {chunkCount} chunks indexed
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground shadow-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card/60 px-3 py-1 font-mono text-[11px] text-muted-foreground shadow-xs">
                   <Cpu className="size-3" />
                   bge-small-en-v1.5 · ChromaDB
                 </span>
-              </div>
-
-              {/* Starter Prompts Grid */}
-              <div className="mt-10 grid w-full max-w-2xl grid-cols-1 sm:grid-cols-2 gap-3">
-                {STARTER_PROMPTS.map((p) => (
-                  <button
-                    key={p.label}
-                    onClick={() => handleSubmit(p.question)}
-                    disabled={isProcessing}
-                    className="group flex flex-col items-start rounded-xl border border-border/60 bg-card/50 p-4 text-left shadow-sm transition-all hover:border-evidence/40 hover:bg-evidence/5 hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{p.icon}</span>
-                      <span className="font-mono text-[11px] uppercase tracking-wider text-evidence">
-                        {p.label}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-[13px] leading-snug text-foreground/80 group-hover:text-foreground">
-                      "{p.question}"
-                    </p>
-                  </button>
-                ))}
               </div>
             </div>
           ) : (
