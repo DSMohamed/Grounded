@@ -14,7 +14,7 @@ const STAGE_SHORT = ["Risk", "Retrieve", "Threshold", "Generate", "Validate"];
 
 export function StageTracker({ current, elapsedMs }: { current: number; elapsedMs?: number | undefined }) {
   return (
-    <div className="rounded-md border border-border bg-card p-5 shadow-panel">
+    <div className="w-full rounded-md border border-border bg-card p-3.5 sm:p-5 shadow-panel overflow-hidden">
       {/* Header with elapsed time */}
       <div className="mb-4 flex items-center justify-between">
         <span className="label-mono text-muted-foreground">Pipeline execution</span>
@@ -28,8 +28,9 @@ export function StageTracker({ current, elapsedMs }: { current: number; elapsedM
       </div>
 
       {/* Flow diagram */}
-      <div className="flex items-center gap-0">
-        {STAGES.map((stage, i) => {
+      <div className="w-full overflow-x-auto pb-1 -mx-1 px-1">
+        <div className="flex items-center gap-0 min-w-[320px] sm:min-w-full">
+          {STAGES.map((stage, i) => {
           const done = i < current;
           const active = i === current;
           const Icon = STAGE_ICONS[i]!;
@@ -130,6 +131,7 @@ export function StageTracker({ current, elapsedMs }: { current: number; elapsedM
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Active stage detail bar */}

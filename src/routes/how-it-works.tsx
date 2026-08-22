@@ -260,36 +260,38 @@ function PipelineRow({
   onSelect: (id: string | null) => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-0">
-      {nodes.map((node, i) => (
-        <div key={node.id} className="flex items-center">
-          <button
-            onClick={() => onSelect(selected === node.id ? null : node.id)}
-            className={cn(
-              "group relative flex flex-col items-center rounded-xl border-2 bg-card p-4 shadow-panel transition-all hover:shadow-lg",
-              selected === node.id
-                ? "border-evidence bg-evidence-soft scale-105"
-                : "border-border hover:border-evidence/40",
-            )}
-            style={{ minWidth: 110 }}
-          >
-            {selected === node.id && (
-              <span className="absolute -inset-1 animate-pulse rounded-xl bg-evidence/10 blur-md" />
-            )}
-            <node.icon className={cn("relative z-10 size-7", node.color)} />
-            <span className="relative z-10 mt-2 text-center font-mono text-[10px] leading-tight text-foreground/80">
-              {node.label}
-            </span>
-          </button>
+    <div className="w-full overflow-x-auto pb-4 pt-1 -mx-2 px-2">
+      <div className="flex items-center gap-0 min-w-max py-2">
+        {nodes.map((node, i) => (
+          <div key={node.id} className="flex items-center">
+            <button
+              onClick={() => onSelect(selected === node.id ? null : node.id)}
+              className={cn(
+                "group relative flex flex-col items-center rounded-xl border-2 bg-card p-4 shadow-panel transition-all hover:shadow-lg",
+                selected === node.id
+                  ? "border-evidence bg-evidence-soft scale-105"
+                  : "border-border hover:border-evidence/40",
+              )}
+              style={{ minWidth: 110 }}
+            >
+              {selected === node.id && (
+                <span className="absolute -inset-1 animate-pulse rounded-xl bg-evidence/10 blur-md" />
+              )}
+              <node.icon className={cn("relative z-10 size-7", node.color)} />
+              <span className="relative z-10 mt-2 text-center font-mono text-[10px] leading-tight text-foreground/80">
+                {node.label}
+              </span>
+            </button>
 
-          {i < nodes.length - 1 && (
-            <div className="mx-2 flex items-center">
-              <div className="h-[2px] w-6 bg-border sm:w-10" />
-              <ArrowRight className="size-3 text-muted-foreground" />
-            </div>
-          )}
-        </div>
-      ))}
+            {i < nodes.length - 1 && (
+              <div className="mx-2 flex items-center">
+                <div className="h-[2px] w-6 bg-border sm:w-10" />
+                <ArrowRight className="size-3 text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

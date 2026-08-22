@@ -123,6 +123,11 @@ function ChatIndexPage() {
   useEffect(() => {
     if (!supabase) return;
 
+    // Clean URL hash if returning from OAuth redirect
+    if (typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+
     // Get current session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -131,6 +136,9 @@ function ChatIndexPage() {
     // Listen to changes (sign in, sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      if (session && typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -503,7 +511,7 @@ function ChatIndexPage() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] w-full overflow-hidden bg-background">
+    <div className="flex h-full w-full overflow-hidden bg-background">
       {/* ChatGPT-style Sidebar */}
       <ChatSidebar
         conversations={conversations}

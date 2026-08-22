@@ -8,12 +8,14 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Menu, X, MessageSquare, FlaskConical, Layers, LogIn } from "lucide-react";
 
 import appCss from "../styles.css?url";
 import { GroundedLogo } from "../components/grounded/GroundedLogo";
 import { ModeBadge } from "../components/grounded/ModeBadge";
 import { ThemeToggle } from "../components/grounded/ThemeToggle";
+import { cn } from "../lib/utils";
 
 function NotFoundComponent() {
   return (
@@ -76,7 +78,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=5" },
       { title: "Grounded — Evidence-Bound Clinical Assistant" },
       {
         name: "description",
@@ -111,11 +113,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="min-h-full">
         {children}
         <Scripts />
       </body>
@@ -127,72 +129,146 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isChat = pathname === "/";
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
     <QueryClientProvider client={queryClient}>
       {isChat ? (
-        <div className="flex h-screen w-screen flex-col overflow-hidden bg-background">
+        <div className="flex h-screen w-full overflow-hidden bg-background">
           <Outlet />
         </div>
       ) : (
-        <div className="flex min-h-screen flex-col">
-          <header className="border-b border-border bg-paper/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-              <Link to="/" className="flex items-center gap-2.5">
-                <GroundedLogo className="size-7 text-evidence" />
-                <div className="flex flex-col sm:flex-row sm:items-baseline sm:gap-2">
-                  <span className="font-serif text-xl font-semibold tracking-tight text-foreground">
+        <div className="flex min-h-screen w-full flex-col bg-background">
+          <header className="sticky top-0 z-30 border-b border-border bg-paper/90 backdrop-blur-md">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 sm:px-6 sm:py-3.5">
+              {/* Brand Logo & Title */}
+              <Link to="/" className="flex items-center gap-2.5 min-w-0">
+                <GroundedLogo className="size-7 shrink-0 text-evidence" />
+                <div className="flex flex-col min-w-0">
+                  <span className="font-serif text-lg sm:text-xl font-semibold tracking-tight text-foreground truncate">
                     Grounded
                   </span>
-                  <span className="label-mono text-muted-foreground text-[10px]">
+                  <span className="label-mono text-muted-foreground text-[9px] sm:text-[10px] hidden sm:inline truncate">
                     USPSTF · clinical evidence counseling
                   </span>
                 </div>
               </Link>
-              <div className="ml-auto flex items-center gap-3">
+
+              {/* Desktop Nav Items */}
+              <div className="hidden md:flex items-center gap-3">
                 <ModeBadge />
                 <nav className="flex items-center gap-1 border-l border-border pl-3">
                   <Link
                     to="/"
-                    className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                    activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                    className="label-mono rounded-[4px] px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/20"
+                    activeProps={{ className: "text-evidence bg-evidence-soft font-medium" }}
                     activeOptions={{ exact: true }}
                   >
                     Chat
                   </Link>
                   <Link
                     to="/demo"
-                    className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                    activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                    className="label-mono rounded-[4px] px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/20"
+                    activeProps={{ className: "text-evidence bg-evidence-soft font-medium" }}
                   >
                     Demo
                   </Link>
                   <Link
                     to="/how-it-works"
-                    className="label-mono rounded-[3px] px-3 py-2 text-muted-foreground transition-colors hover:text-foreground"
-                    activeProps={{ className: "text-evidence bg-evidence-soft" }}
+                    className="label-mono rounded-[4px] px-3 py-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/20"
+                    activeProps={{ className: "text-evidence bg-evidence-soft font-medium" }}
                   >
                     Architecture
                   </Link>
                   <Link
                     to="/auth"
-                    className="label-mono rounded-[3px] px-3 py-2 text-evidence transition-colors hover:bg-evidence/10"
+                    className="label-mono rounded-[4px] px-3 py-1.5 text-evidence transition-colors hover:bg-evidence/10"
+                    activeProps={{ className: "bg-evidence/15 font-semibold" }}
                   >
                     Sign In
                   </Link>
                 </nav>
                 <ThemeToggle />
               </div>
+
+              {/* Mobile Top Actions & Hamburger Menu */}
+              <div className="flex md:hidden items-center gap-2">
+                <ModeBadge />
+                <ThemeToggle />
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="flex size-9 items-center justify-center rounded-lg border border-border/70 bg-card text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors"
+                  aria-label="Toggle navigation menu"
+                  aria-expanded={mobileMenuOpen}
+                >
+                  {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+                </button>
+              </div>
             </div>
+
+            {/* Mobile Navigation Drawer / Dropdown */}
+            {mobileMenuOpen && (
+              <div className="border-t border-border bg-card/95 px-4 py-4 backdrop-blur-md md:hidden animate-fade-up">
+                <nav className="flex flex-col space-y-1">
+                  <Link
+                    to="/"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
+                    activeProps={{ className: "bg-evidence/10 text-evidence font-semibold" }}
+                    activeOptions={{ exact: true }}
+                  >
+                    <MessageSquare className="size-4" />
+                    <span>Chat Assistant</span>
+                  </Link>
+
+                  <Link
+                    to="/demo"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
+                    activeProps={{ className: "bg-evidence/10 text-evidence font-semibold" }}
+                  >
+                    <FlaskConical className="size-4" />
+                    <span>Demo Scenarios</span>
+                  </Link>
+
+                  <Link
+                    to="/how-it-works"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted/30 hover:text-foreground transition-colors"
+                    activeProps={{ className: "bg-evidence/10 text-evidence font-semibold" }}
+                  >
+                    <Layers className="size-4" />
+                    <span>Pipeline Architecture</span>
+                  </Link>
+
+                  <div className="my-2 border-t border-border/50" />
+
+                  <Link
+                    to="/auth"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 rounded-lg bg-evidence/15 px-3 py-2.5 font-mono text-xs font-semibold uppercase tracking-wider text-evidence hover:bg-evidence/25 transition-colors"
+                  >
+                    <LogIn className="size-4" />
+                    <span>Sign In / Create Account</span>
+                  </Link>
+                </nav>
+              </div>
+            )}
           </header>
 
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-12">
+          <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
             <Outlet />
           </main>
 
           <footer className="border-t border-border bg-paper">
-            <div className="mx-auto max-w-6xl px-6 py-5">
+            <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6 sm:py-5">
               <p className="text-xs leading-relaxed text-muted-foreground">
                 <span className="label-mono mr-2 text-foreground/70">Disclaimer</span>
                 This tool supports, and does not replace, clinical judgment. Answers
