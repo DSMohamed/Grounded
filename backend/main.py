@@ -61,14 +61,17 @@ _index_chunk_count = 0
 async def startup_event():
     """Build or load the persisted Chroma index once on startup."""
     global _index_loaded, _index_chunk_count
+    import gc
     try:
         vs = build_index()
         _index_chunk_count = vs._collection.count()
         _index_loaded = True
+        gc.collect()
         print(f"[startup] Index ready with {_index_chunk_count} chunks")
     except Exception as e:
         print(f"[startup] WARNING: Could not load index: {e}")
         _index_loaded = False
+        gc.collect()
 
 
 # ── Models ─────────────────────────────────────────────────────────────────

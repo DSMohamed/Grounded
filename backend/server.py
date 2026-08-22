@@ -1,5 +1,6 @@
 import os
 import sys
+import gc
 from pathlib import Path
 import uvicorn
 
@@ -16,10 +17,22 @@ if env_path.exists():
 from backend.main import app
 
 def start_server(port: int = 8000, enable_ngrok: bool = True):
+    # Dynamic port binding for Render/Heroku/Cloud ($PORT)
+    env_port = os.environ.get("PORT")
+    if env_port:
+        try:
+            port = int(env_port)
+        except ValueError:
+            pass
+
+    # Check if running in cloud (Render, Heroku, Container)
+    is_cloud = bool(os.environ.get("RENDER") or os.environ.get("PORT") or os.environ.get("DYNO"))
+
     ngrok_token = os.environ.get("NGROK_AUTHTOKEN", "")
     public_url = None
 
-    if enable_ngrok and ngrok_token:
+    # Only run Ngrok locally — never on Render/Cloud (saves ~150MB RAM to stay under 512MB limit)
+    if enable_ngrok and ngrok_token and not is_cloud:
         try:
             from pyngrok import ngrok
             ngrok.set_auth_token(ngrok_token)
@@ -37,8 +50,12 @@ def start_server(port: int = 8000, enable_ngrok: bool = True):
             print("=" * 70 + "\n")
         except Exception as e:
             print(f"⚠️ Ngrok tunnel: {e}")
+    elif is_cloud:
+        print(f"[server] Running in cloud environment on port {port}. Ngrok tunnel disabled to optimize memory.")
 
+    gc.collect()
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 if __name__ == "__main__":
     start_server()
+
