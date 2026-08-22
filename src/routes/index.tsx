@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { ask } from "@/lib/grounded.functions";
 import type { Conversation, ChatMessage as ChatMessageType, AskResponse } from "@/lib/grounded.types";
@@ -18,7 +18,7 @@ import {
   deleteCloudConversation,
 } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
-import { Database, FileText, Cpu, PanelLeft, Cloud, EyeOff, ShieldCheck, X } from "lucide-react";
+import { Database, FileText, Cpu, PanelLeft, Cloud, EyeOff, ShieldCheck, Layers, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { API_BASE_URL } from "@/lib/config";
 
@@ -191,15 +191,57 @@ function ChatIndexPage() {
   // Temporary chat state (in-memory only, never saved)
   const [isTemporaryChat, setIsTemporaryChat] = useState(false);
   const [tempMessages, setTempMessages] = useState<ChatMessageType[]>([]);
+  const [tokenDropdownOpen, setTokenDropdownOpen] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const currentUserIdRef = useRef<string | null | undefined>(undefined);
   const activeIdRef = useRef<string | null>(activeId);
+  const tokenPopoverRef = useRef<HTMLDivElement>(null);
 
   // Keep activeIdRef in sync
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  // Click outside to close token popover
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        tokenPopoverRef.current &&
+        !tokenPopoverRef.current.contains(event.target as Node)
+      ) {
+        setTokenDropdownOpen(false);
+      }
+    }
+    if (tokenDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [tokenDropdownOpen]);
+
+  // Compute total tokens consumed in active consultation
+  const totalChatTokens = useMemo(() => {
+    const list = isTemporaryChat
+      ? tempMessages
+      : conversations.find((c) => c.id === activeId)?.messages || [];
+    return list.reduce((acc, m) => {
+      if (m.role === "assistant") {
+        return (
+          acc +
+          (m.response?.token_usage?.total_tokens ??
+            (m.response
+              ? Math.max(100, Math.floor((m.response.recommendation?.length || 60) * 1.3))
+              : 0))
+        );
+      }
+      return acc + Math.max(8, Math.floor(m.content.split(/\s+/).filter(Boolean).length * 1.3));
+    }, 0);
+  }, [isTemporaryChat, tempMessages, conversations, activeId]);
+
+  const SESSION_BUDGET = 8192;
+  const remainingBudget = Math.max(0, SESSION_BUDGET - totalChatTokens);
 
   // 1. Supabase Auth state listener
   useEffect(() => {
@@ -637,7 +679,7 @@ function ChatIndexPage() {
       {/* Main Chat Interface */}
       <main className="flex flex-1 flex-col overflow-hidden min-w-0">
         {/* Top bar */}
-        <header className="flex h-14 items-center justify-between border-b border-border/40 bg-card/20 px-3 sm:px-4 backdrop-blur">
+        <header className="relative z-40 flex h-14 items-center justify-between border-b border-border/40 bg-background/95 px-3 sm:px-4 backdrop-blur">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             {/* Mobile hamburger menu button */}
             <button
@@ -674,6 +716,81 @@ function ChatIndexPage() {
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Top-Right Corner Token Budget Pill */}
+            {totalChatTokens > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setTokenDropdownOpen((prev) => !prev)}
+                  title="Click to inspect session token budget"
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] sm:text-[11px] tabular-nums transition-colors cursor-pointer",
+                    tokenDropdownOpen
+                      ? "border-evidence/40 bg-evidence/15 text-evidence font-medium"
+                      : "border-border/60 bg-card/60 text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                  )}
+                >
+                  <Cpu className="size-3 text-evidence shrink-0 opacity-80" />
+                  <span>{totalChatTokens.toLocaleString()} tok</span>
+                  <span className="opacity-40">·</span>
+                  <span className="font-semibold text-foreground/80">{remainingBudget.toLocaleString()} rem</span>
+                </button>
+
+                {/* Dropdown Popover (100% Solid Opaque Background & High Z-Index) */}
+                {tokenDropdownOpen && (
+                  <div
+                    ref={tokenPopoverRef}
+                    className="absolute right-0 top-full mt-2 w-72 sm:w-80 rounded-xl border border-border/80 bg-background dark:bg-card p-4 shadow-2xl z-50 animate-fade-up space-y-3.5"
+                    style={{ zIndex: 9999 }}
+                  >
+                    <div className="flex items-center justify-between border-b border-border/30 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="size-3.5 text-evidence" />
+                        <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-foreground">
+                          Session Context Budget
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setTokenDropdownOpen(false)}
+                        className="font-mono text-[10px] text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted/40"
+                        aria-label="Close popover"
+                      >
+                        <X className="size-3.5" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 text-center">
+                      <div className="rounded-lg bg-muted/40 border border-border/40 p-2.5">
+                        <div className="font-mono text-[9px] uppercase text-muted-foreground">Chat Consumed</div>
+                        <div className="font-mono text-[14px] font-semibold text-foreground mt-0.5 tabular-nums">
+                          {totalChatTokens.toLocaleString()}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg bg-muted/40 border border-border/40 p-2.5">
+                        <div className="font-mono text-[9px] uppercase text-muted-foreground">Tokens Remaining</div>
+                        <div className="font-mono text-[14px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
+                          {remainingBudget.toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
+                        <span>Context budget used</span>
+                        <span>{((totalChatTokens / SESSION_BUDGET) * 100).toFixed(1)}% of 8k</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-muted/50">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-evidence to-teal-500 transition-all duration-500"
+                          style={{ width: `${Math.min(100, (totalChatTokens / SESSION_BUDGET) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {isTemporaryChat ? (
               <span className="inline-flex items-center gap-1 font-mono text-[9px] sm:text-[10px] text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded-full px-2 py-0.5 sm:px-2.5 sm:py-1 font-medium">
                 <EyeOff className="size-2.5 sm:size-3" /> Temp
@@ -761,32 +878,9 @@ function ChatIndexPage() {
           ) : (
             /* Active Conversation Messages */
             <div className="mx-auto max-w-3xl space-y-6">
-              {(() => {
-                let runningTokens = 0;
-                const SESSION_BUDGET = 8192;
-
-                return currentDisplayMessages.map((m) => {
-                  const thisTokens =
-                    m.role === "assistant"
-                      ? (m.response?.token_usage?.total_tokens ??
-                        (m.response ? Math.max(100, Math.floor((m.response.recommendation?.length || 60) * 1.3)) : 0))
-                      : Math.max(8, Math.floor(m.content.split(/\s+/).filter(Boolean).length * 1.3));
-
-                  runningTokens += thisTokens;
-                  const cumulative = runningTokens;
-                  const remaining = Math.max(0, SESSION_BUDGET - cumulative);
-
-                  return (
-                    <ChatMessage
-                      key={m.id}
-                      message={m}
-                      cumulativeTokens={cumulative}
-                      remainingBudget={remaining}
-                      sessionBudget={SESSION_BUDGET}
-                    />
-                  );
-                });
-              })()}
+              {currentDisplayMessages.map((m) => (
+                <ChatMessage key={m.id} message={m} />
+              ))}
               <div ref={messagesEndRef} />
             </div>
           )}
