@@ -761,9 +761,32 @@ function ChatIndexPage() {
           ) : (
             /* Active Conversation Messages */
             <div className="mx-auto max-w-3xl space-y-6">
-              {currentDisplayMessages.map((m) => (
-                <ChatMessage key={m.id} message={m} />
-              ))}
+              {(() => {
+                let runningTokens = 0;
+                const SESSION_BUDGET = 8192;
+
+                return currentDisplayMessages.map((m) => {
+                  const thisTokens =
+                    m.role === "assistant"
+                      ? (m.response?.token_usage?.total_tokens ??
+                        (m.response ? Math.max(100, Math.floor((m.response.recommendation?.length || 60) * 1.3)) : 0))
+                      : Math.max(8, Math.floor(m.content.split(/\s+/).filter(Boolean).length * 1.3));
+
+                  runningTokens += thisTokens;
+                  const cumulative = runningTokens;
+                  const remaining = Math.max(0, SESSION_BUDGET - cumulative);
+
+                  return (
+                    <ChatMessage
+                      key={m.id}
+                      message={m}
+                      cumulativeTokens={cumulative}
+                      remainingBudget={remaining}
+                      sessionBudget={SESSION_BUDGET}
+                    />
+                  );
+                });
+              })()}
               <div ref={messagesEndRef} />
             </div>
           )}

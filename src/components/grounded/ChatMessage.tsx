@@ -12,11 +12,26 @@ import type { ChatMessage as ChatMessageType, AskResponse, TokenUsage } from "@/
 import { StageTracker } from "./StageTracker";
 import { cn } from "@/lib/utils";
 
-export function ChatMessage({ message }: { message: ChatMessageType }) {
+interface ChatMessageProps {
+  message: ChatMessageType;
+  cumulativeTokens?: number;
+  remainingBudget?: number;
+  sessionBudget?: number;
+}
+
+export function ChatMessage({
+  message,
+  cumulativeTokens,
+  remainingBudget,
+  sessionBudget = 8192,
+}: ChatMessageProps) {
   if (message.role === "user") return <UserBubble text={message.content} />;
   return (
     <AssistantBubble
       message={message}
+      cumulativeTokens={cumulativeTokens}
+      remainingBudget={remainingBudget}
+      sessionBudget={sessionBudget}
     />
   );
 }
@@ -40,13 +55,27 @@ function UserBubble({ text }: { text: string }) {
 
 /* ── Assistant bubble ──────────────────────────────────────────────────── */
 
-function AssistantBubble({ message }: { message: ChatMessageType }) {
+function AssistantBubble({
+  message,
+  cumulativeTokens,
+  remainingBudget,
+  sessionBudget = 8192,
+}: {
+  message: ChatMessageType;
+  cumulativeTokens?: number;
+  remainingBudget?: number;
+  sessionBudget?: number;
+}) {
   const [showEvidence, setShowEvidence] = useState(false);
   const [showTokenDetails, setShowTokenDetails] = useState(false);
   const [expandedClaim, setExpandedClaim] = useState<number | null>(null);
   const isLoading = message.stage !== undefined && message.stage >= 0 && message.stage < 5;
   const result = message.response;
   const tokenUsage = getOrEstimateTokens(result, message.content);
+
+  const turnTokens = tokenUsage?.total_tokens ?? 0;
+  const cumulative = cumulativeTokens ?? turnTokens;
+  const remaining = remainingBudget !== undefined ? remainingBudget : Math.max(0, sessionBudget - cumulative);
 
   return (
     <div className="flex gap-3 animate-fade-up">
@@ -83,16 +112,22 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
               )}
             >
               <Cpu className="size-3 shrink-0 opacity-80" />
-              <span>{tokenUsage.total_tokens.toLocaleString()} tokens used</span>
+              <span>{turnTokens.toLocaleString()} tok used</span>
               <span className="opacity-50">·</span>
-              <span className="font-semibold text-foreground/80">{tokenUsage.remaining_tokens.toLocaleString()} rem</span>
+              <span className="font-semibold text-foreground/85">{remaining.toLocaleString()} rem</span>
             </button>
           )}
         </div>
 
         {/* Token Details Expansion Drawer */}
         {tokenUsage && showTokenDetails && (
-          <TokenDetailsPanel usage={tokenUsage} onClose={() => setShowTokenDetails(false)} />
+          <TokenDetailsPanel
+            usage={tokenUsage}
+            cumulativeTokens={cumulative}
+            remainingBudget={remaining}
+            sessionBudget={sessionBudget}
+            onClose={() => setShowTokenDetails(false)}
+          />
         )}
 
         {/* Loading state — pipeline tracker */}
@@ -193,7 +228,7 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
                     onClick={() => setShowTokenDetails(!showTokenDetails)}
                     className="cursor-pointer rounded-md bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 font-mono text-[10px] text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/15"
                   >
-                    {tokenUsage.total_tokens.toLocaleString()} tok ({((tokenUsage.total_tokens / tokenUsage.max_context_tokens) * 100).toFixed(1)}% ctx)
+                    {cumulative.toLocaleString()} / {sessionBudget.toLocaleString()} total ({((cumulative / sessionBudget) * 100).toFixed(1)}% chat budget)
                   </span>
                 )}
               </div>
@@ -207,8 +242,20 @@ function AssistantBubble({ message }: { message: ChatMessageType }) {
 
 /* ── Token details drawer ────────────────────────────────────────────────── */
 
-function TokenDetailsPanel({ usage, onClose }: { usage: TokenUsage; onClose: () => void }) {
-  const percentUsed = Math.min(100, Math.max(1, (usage.total_tokens / usage.max_context_tokens) * 100));
+function TokenDetailsPanel({
+  usage,
+  cumulativeTokens,
+  remainingBudget,
+  sessionBudget,
+  onClose,
+}: {
+  usage: TokenUsage;
+  cumulativeTokens: number;
+  remainingBudget: number;
+  sessionBudget: number;
+  onClose: () => void;
+}) {
+  const percentUsed = Math.min(100, Math.max(1, (cumulativeTokens / sessionBudget) * 100));
 
   return (
     <div className="rounded-xl border border-cyan-500/30 bg-card/80 p-3.5 shadow-md backdrop-blur-sm animate-fade-up space-y-3">
@@ -216,7 +263,7 @@ function TokenDetailsPanel({ usage, onClose }: { usage: TokenUsage; onClose: () 
         <div className="flex items-center gap-2">
           <Layers className="size-4 text-cyan-500" />
           <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-foreground">
-            Token Usage & Context Budget
+            Token Usage & Cumulative Budget
           </span>
         </div>
         <button
@@ -230,30 +277,30 @@ function TokenDetailsPanel({ usage, onClose }: { usage: TokenUsage; onClose: () 
       {/* Grid of stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
         <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
-          <div className="font-mono text-[9px] uppercase text-muted-foreground">Input (Prompt)</div>
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">This Turn (Input)</div>
           <div className="font-mono text-[13px] font-semibold text-foreground mt-0.5 tabular-nums">
             {usage.prompt_tokens.toLocaleString()}
           </div>
         </div>
 
         <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
-          <div className="font-mono text-[9px] uppercase text-muted-foreground">Output (Completion)</div>
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">This Turn (Output)</div>
           <div className="font-mono text-[13px] font-semibold text-evidence mt-0.5 tabular-nums">
             {usage.completion_tokens.toLocaleString()}
           </div>
         </div>
 
         <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
-          <div className="font-mono text-[9px] uppercase text-muted-foreground">Total Consumed</div>
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">Chat Total Consumed</div>
           <div className="font-mono text-[13px] font-semibold text-cyan-600 dark:text-cyan-400 mt-0.5 tabular-nums">
-            {usage.total_tokens.toLocaleString()}
+            {cumulativeTokens.toLocaleString()}
           </div>
         </div>
 
         <div className="rounded-lg bg-muted/30 border border-border/40 p-2">
-          <div className="font-mono text-[9px] uppercase text-muted-foreground">Tokens Remaining</div>
+          <div className="font-mono text-[9px] uppercase text-muted-foreground">Budget Remaining</div>
           <div className="font-mono text-[13px] font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
-            {usage.remaining_tokens.toLocaleString()}
+            {remainingBudget.toLocaleString()}
           </div>
         </div>
       </div>
@@ -261,8 +308,8 @@ function TokenDetailsPanel({ usage, onClose }: { usage: TokenUsage; onClose: () 
       {/* Progress bar */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-          <span>Context window headroom</span>
-          <span>{usage.remaining_tokens.toLocaleString()} of {usage.max_context_tokens.toLocaleString()} tokens left ({percentUsed.toFixed(1)}% used)</span>
+          <span>Conversation budget headroom</span>
+          <span>{remainingBudget.toLocaleString()} of {sessionBudget.toLocaleString()} tokens left ({percentUsed.toFixed(1)}% used)</span>
         </div>
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
           <div
