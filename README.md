@@ -18,6 +18,7 @@
 * 🛡️ **5-Tier Pre-Generation Safety Guardrails**: High-speed regex classifier halts emergency triage, prescription dosage inquiries, diagnostic requests, and adversarial prompt injections in **0.00ms** before touching the LLM.
 * 🎯 **Calibrated Weak-Retrieval Gating**: Automatically halts out-of-domain questions with *"Insufficient Evidence"* when similarity scores fall below the calibrated threshold (`0.57`).
 * 🔍 **Post-Generation Citation Firewall**: Post-generation validator verifies every cited chunk ID against retrieved evidence and silently strips any hallucinated citations before the response reaches the user.
+* 🔢 **Token Usage & Cumulative Budget Transparency**: Real-time per-turn token consumption (prompt input + completion output) and cumulative conversation context budget countdown (8k headroom) with interactive breakdown drawers and utilization meters.
 * 💬 **ChatGPT-Style Clinical UX**: Full conversational interface with collapsible evidence passage drawers, radial confidence badges, and dark emerald aesthetics.
 * 📱 **Cross-Platform (Web + Flutter)**: TanStack Start / React web interface + Flutter mobile application communicating over authenticated Ngrok HTTPS tunnels.
 * 🔒 **Privacy & Cloud Sync**: Optional Supabase authentication (PostgreSQL RLS) plus guest local storage and Incognito temporary session modes.

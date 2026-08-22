@@ -118,6 +118,15 @@ const QUERY_NODES: ArchNode[] = [
     config: "Schema check + invented citation detection",
     color: "text-evidence",
   },
+  {
+    id: "tokens",
+    label: "Token Budgeting",
+    icon: Zap,
+    detail:
+      "Computes prompt and completion token consumption per turn, tracking cumulative chat context usage and remaining budget against the 8,192-token headroom.",
+    config: "budget=8,192 tok · cumulative tracking · real-time headroom",
+    color: "text-cyan-600 dark:text-cyan-400",
+  },
 ];
 
 /* ── Health status fetching ─────────────────────────────────────────────── */
