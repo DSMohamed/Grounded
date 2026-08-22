@@ -142,7 +142,7 @@ The codebase has been mapped and analyzed into a persistent Knowledge Graph usin
 * 📋 **Audit Report & Metrics**: Read [`graphify-out/GRAPH_REPORT.md`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/GRAPH_REPORT.md) for community cohesion scores.
 * 📦 **GraphRAG Data**: [`graphify-out/graph.json`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/graph.json) contains raw structured node/edge definitions (**704 nodes · 1,199 edges · 84 communities**).
 
-### 👑 God Nodes (Core Architectural Hubs)
+### 👑 Great Nodes (Core Architectural Hubs)
 | Node | Type | Connected Edges | Architectural Responsibility |
 | :--- | :---: | :---: | :--- |
 | **`cn()`** | Function | **246 edges** | Central UI styling utility bridge across all React components |
