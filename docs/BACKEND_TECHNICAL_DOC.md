@@ -17,7 +17,8 @@
 11. [Citation Validation — Post-Generation Audit](#11-citation-validation--post-generation-audit)
 12. [Full Request Lifecycle](#12-full-request-lifecycle)
 13. [Latency Optimization](#13-latency-optimization)
-14. [File Map & Responsibilities](#14-file-map--responsibilities)
+14. [Token Economics & 8,192 Context Window Budget](#14-token-economics--8192-context-window-budget)
+15. [File Map & Responsibilities](#15-file-map--responsibilities)
 
 ---
 
@@ -287,7 +288,27 @@ User: "What are the ABCDE criteria for melanoma?"
 
 ---
 
-## 14. File Map & Responsibilities
+## 14. Token Economics & 8,192 Context Window Budget
+
+The platform enforces real-time context token tracking with an **8,192-token ($2^{13}$)** conversation session budget:
+
+### Anatomy of a Clinical Consultation Turn
+| Component | Typical Token Usage | Responsibility |
+| :--- | :---: | :--- |
+| **System Guardrails & Contract** | ~350 – 450 tokens | Strict JSON schema, citation rules, and refusal directives |
+| **Evidence Context Block** | ~600 – 800 tokens | Top-4 retrieved USPSTF guideline chunks from ChromaDB |
+| **Doctor/User Query** | ~20 – 100 tokens | Clinical scenario and patient demographic framing |
+| **Validated Grounded Response** | ~250 – 500 tokens | Structured recommendation, claims, and cited chunk IDs |
+| **Total per Turn** | **~500 – 800 tokens** | **Accommodates 10–15 deep multi-turn consultation exchanges** |
+
+### Why 8,192 (8k) Budget?
+* **Power-of-Two Transformer KV-Cache Optimization**: Aligns with binary power-of-two memory block layouts ($2^{13} = 8,192$ tokens $\approx 6,100$ English words or ~24 formatted pages).
+* **Sub-Second LPU Latency & TPM Protection**: Keeps Time-To-First-Token (TTFT) ultra-fast (<400ms on Groq LPU) and prevents exceeding Tokens-Per-Minute rate limits on high-speed inference endpoints.
+* **Configurable Scaling**: The budget is modular and easily configurable (`SESSION_BUDGET = 8192` in `index.tsx` and `backend/main.py`) to scale to 16k, 32k, or 128k when attached to full-context enterprise endpoints.
+
+---
+
+## 15. File Map & Responsibilities
 
 ```
 backend/

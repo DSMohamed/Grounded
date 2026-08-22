@@ -57,6 +57,7 @@ docs/
   * Self-healing JSON parser engine (`_parse_llm_json`) with 3-tier repair.
   * Multi-provider priority chain: **Groq LPU (~400ms)** ➔ **OpenRouter (~3.2s)** ➔ **xAI Grok (~1.8s)** ➔ **Simulation (~0ms)**.
   * 5-minute health cooldown cache for dead or rate-limited providers.
+  * Real-time Token Economics & 8,192-token context headroom tracking.
 
 ---
 

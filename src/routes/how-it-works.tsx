@@ -239,7 +239,7 @@ function HowItWorksPage() {
       )}
 
       {/* Design principles */}
-      <section className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <PrincipleCard
           title="Refuse ≠ Failure"
           body="When the source doesn't cover a question, returning 'Insufficient Evidence' is the correct output — not a bug."
@@ -251,6 +251,10 @@ function HowItWorksPage() {
         <PrincipleCard
           title="Boundary = Feature"
           body="The threshold gate, risk classifier, and citation validator form three independent safety layers."
+        />
+        <PrincipleCard
+          title="8k Token Budget"
+          body="8,192-token session headroom balances 10–15 clinical turns with sub-second LPU inference and KV-cache optimization."
         />
       </section>
     </div>

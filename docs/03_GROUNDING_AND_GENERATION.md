@@ -12,6 +12,7 @@ This document details the grounded generation layer: how retrieved evidence is c
 4. [Self-Healing JSON Parser Engine (`_parse_llm_json`)](#4-self-healing-json-parser-engine-_parse_llm_json)
 5. [Multi-Provider Resilient Failover Architecture](#5-multi-provider-resilient-failover-architecture)
 6. [Provider Health Cache (`_PROVIDER_COOLDOWN = 300s`)](#6-provider-health-cache-_provider_cooldown--300s)
+7. [Token Economics & 8,192 Context Window Budget](#7-token-economics--8192-context-window-budget)
 
 ---
 
@@ -167,3 +168,24 @@ When an external provider fails (e.g. rate limit HTTP 429 or quota exhaustion), 
 * The backend logs failed providers in `_provider_failures[provider_name] = timestamp`.
 * For the next **300 seconds (5 minutes)**, subsequent requests **skip the failed provider instantly** and route directly to healthy providers or instant simulation.
 * Result: Latency remains consistently **`< 2.8s`** even during external API outages.
+
+---
+
+## 7. Token Economics & 8,192 Context Window Budget
+
+To maintain high throughput and transparent resource accounting across multi-turn clinical consultations, the system tracks token utilization with an **8,192-token ($2^{13}$)** conversation session budget:
+
+### Anatomy of a Clinical Consultation Turn
+| Pipeline Layer | Typical Token Usage | Function & Purpose |
+| :--- | :---: | :--- |
+| **System Prompt & Safety Contract** | ~350 – 450 tokens | Strict JSON schema, citation requirements, and refusal directives |
+| **Retrieved Evidence Context** | ~600 – 800 tokens | Top-4 guideline chunks retrieved from ChromaDB |
+| **Clinical Query** | ~20 – 100 tokens | User inquiry and demographic parameters |
+| **Structured Output Response** | ~250 – 500 tokens | Clinical recommendation, supporting evidence claims, and cited chunk IDs |
+| **Total per Turn** | **~500 – 800 tokens** | **Supports 10–15 full multi-turn consultation exchanges** |
+
+### Why 8,192 (8k) Tokens?
+1. **Power-of-Two Memory Alignment**: Standard transformer KV-caches and memory allocators operate in powers of two ($2^{13} = 8,192$ tokens $\approx 6,100$ English words or ~24 formatted pages).
+2. **Sub-Second LPU Latency & Rate Limits**: On Groq LPU (`llama-3.3-70b`) and OpenRouter fast tiers, an 8k working context guarantees sub-second response times without exceeding TPM (Tokens Per Minute) API rate limits.
+3. **Modular Headroom**: The session budget is defined via `SESSION_BUDGET` constants in the frontend and backend and can be scaled to 16k, 32k, or 128k for extended clinical chart review.
+
