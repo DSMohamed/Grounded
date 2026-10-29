@@ -1,31 +1,25 @@
-# 🏥 Grounded — Evidence-Bound Clinical AI Decision Support
+# Grounded — Evidence-Bound Clinical AI Decision Support
 
-[![Hackathon Status](https://img.shields.io/badge/Hackathon-83%2F83_Checkpoints_Verified-10b981.svg?style=for-the-badge)](#-hackathon-checkpoint-verification)
-[![Safety Refusal](https://img.shields.io/badge/Safety_Refusal_Accuracy-100%25-blue.svg?style=for-the-badge)](#-internal-evaluation-scorecard)
-[![Unsupported Claims](https://img.shields.io/badge/Unsupported_Claims-0.0%25-emerald.svg?style=for-the-badge)](#-internal-evaluation-scorecard)
-[![Latency](https://img.shields.io/badge/Latency-Sub--3s_LPU-orange.svg?style=for-the-badge)](#-latency--provider-architecture)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](./LICENSE)
 
-> **"Fluent ≠ Safe."**  
-> In clinical AI, an unsupported answer is a severe patient hazard. **Grounded** is an evidence-bound Clinical Decision Support system strictly tethered to official **USPSTF Skin Cancer Guidelines (2018 Behavioral Counseling + 2023 Visual Screening)**. Every clinical claim is bound to a verifiable passage citation, and refusal is treated as an intentional, first-class safety mechanism.
+Grounded is a clinical decision support demo that answers questions using the USPSTF skin cancer guidelines: the 2018 behavioral counseling recommendation and the 2023 visual screening recommendation. Responses include passage citations, and the system can refuse requests when evidence is insufficient or a question falls outside its scope.
 
 ---
 
-## 🌟 Key Capabilities
+## Key Capabilities
 
-* 📖 **Multi-Document Evidence Grounding**: Answers are synthesized exclusively from 338 section-aware chunks indexed across both the **USPSTF 2018 Counseling** and **USPSTF 2023 Screening** clinical guidelines.
-* ⚡ **Sub-3s LPU Inference & Dual Failover**: Primary generation powered by **Groq LPU** (`llama-3.3-70b-versatile` / `groq/compound-mini`) with seamless failover to **OpenRouter**, **xAI Grok**, and instant deterministic simulation.
-* 🛡️ **5-Tier Pre-Generation Safety Guardrails**: High-speed regex classifier halts emergency triage, prescription dosage inquiries, diagnostic requests, and adversarial prompt injections in **0.00ms** before touching the LLM.
-* 🎯 **Calibrated Weak-Retrieval Gating**: Automatically halts out-of-domain questions with *"Insufficient Evidence"* when similarity scores fall below the calibrated threshold (`0.57`).
-* 🔍 **Post-Generation Citation Firewall**: Post-generation validator verifies every cited chunk ID against retrieved evidence and silently strips any hallucinated citations before the response reaches the user.
-* 🔢 **Token Usage & Cumulative Budget Transparency**: Real-time per-turn token consumption (prompt input + completion output) and cumulative conversation context budget countdown (8k headroom) with interactive breakdown drawers and utilization meters.
-* 💬 **ChatGPT-Style Clinical UX**: Full conversational interface with collapsible evidence passage drawers, radial confidence badges, and dark emerald aesthetics.
-* 📱 **Cross-Platform (Web + Flutter)**: TanStack Start / React web interface + Flutter mobile application communicating over authenticated Ngrok HTTPS tunnels.
-* 🔒 **Privacy & Cloud Sync**: Optional Supabase authentication (PostgreSQL RLS) plus guest local storage and Incognito temporary session modes.
+* **Multi-Document Evidence Grounding**: Answers are synthesized exclusively from 338 section-aware chunks indexed across both the **USPSTF 2018 Counseling** and **USPSTF 2023 Screening** clinical guidelines.
+* **Sub-3s LPU Inference & Dual Failover**: Primary generation powered by **Groq LPU** (`llama-3.3-70b-versatile` / `groq/compound-mini`) with fallback to **OpenRouter**, **xAI Grok**, and deterministic simulation.
+* **5-Tier Pre-Generation Safety Guardrails**: A regex classifier halts emergency triage, prescription dosage inquiries, diagnostic requests, and adversarial prompt injections before generation.
+* **Calibrated Weak-Retrieval Gating**: Automatically halts out-of-domain questions with *"Insufficient Evidence"* when similarity scores fall below the calibrated threshold (`0.57`).
+* **Post-Generation Citation Firewall**: Post-generation validator verifies every cited chunk ID against retrieved evidence and removes invalid citations before the response reaches the user.
+* **Token Usage & Cumulative Budget Transparency**: Real-time per-turn token consumption (prompt input + completion output) and cumulative conversation context budget countdown (8k headroom) with interactive breakdown drawers and utilization meters.
+* **ChatGPT-Style Clinical UX**: Full conversational interface with collapsible evidence passage drawers, radial confidence badges, and dark emerald aesthetics.
+* **Cross-Platform (Web + Flutter)**: TanStack Start / React web interface + Flutter mobile application communicating over authenticated Ngrok HTTPS tunnels.
+* **Privacy & Cloud Sync**: Optional Supabase authentication (PostgreSQL RLS) plus guest local storage and Incognito temporary session modes.
 
 ---
 
-## 📐 System Pipeline Architecture
+## System Pipeline Architecture
 
 ```
                                  ┌───────────────────────────┐
@@ -34,7 +28,7 @@
                                                │
                                                ▼
                            ┌───────────────────────────────────────┐
-                           │   1. Input Risk Classifier (Pre-Gen)  │ (0.00ms Regex)
+                           │   1. Input Risk Classifier (Pre-Gen)  │ (Regex)
                            └───────────────────┬───────────────────┘
                                                │
                  ┌─────────────────────────────┼─────────────────────────────┐
@@ -83,22 +77,22 @@
 
 ---
 
-## ⚡ Latency & Provider Architecture
+## Latency & Provider Architecture
 
-To guarantee high reliability during live clinical evaluations, generation routes through a resilient multi-tier chain:
+Generation tries the following providers in order:
 
 | Priority | Provider | Engine | Avg Latency | Failure Handling |
 | :---: | :--- | :--- | :---: | :--- |
 | **1st** | **Groq LPU** | `llama-3.3-70b-versatile` / `groq/compound-mini` | **~400ms** | 4s timeout → Auto-cooldown (5 min) |
 | **2nd** | **OpenRouter** | `google/gemma-4-26b-a4b-it:free` | **~3.2s** | 4s timeout → Auto-cooldown (5 min) |
 | **3rd** | **xAI Grok** | `grok-2` / `grok-3-mini` | **~1.8s** | 4s timeout → Auto-cooldown (5 min) |
-| **4th** | **Simulation** | Deterministic Grounded Synthesis | **~0ms** | Guaranteed offline fallback |
+| **4th** | **Simulation** | Deterministic Grounded Synthesis | **~0ms** | Offline fallback |
 
 * **Provider Health Cache**: When any remote provider encounters a rate limit (429), authorization issue (403), or network timeout, the backend marks it as degraded for 300 seconds and instantly routes subsequent queries to healthy providers without wasting roundtrip time.
 
 ---
 
-## 🔢 Token Economics & 8,192 Context Window Budget
+## Token Economics & 8,192 Context Window Budget
 
 The platform enforces transparent, real-time context token tracking with a default session budget of **8,192 tokens ($2^{13}$)**:
 
@@ -111,38 +105,37 @@ The platform enforces transparent, real-time context token tracking with a defau
 | **Validated Grounded Response** | ~250 – 500 tokens | Structured recommendation, claims, and cited chunk IDs |
 | **Total per Turn** | **~500 – 800 tokens** | **Accommodates 10–15 deep multi-turn consultation exchanges** |
 
-### 2. Rationale for 8,192 (8k) Budget
-* **Power-of-Two Transformer KV-Cache Optimization**: Aligns with binary power-of-two memory block layouts ($2^{13} = 8,192$ tokens $\approx 6,100$ English words or ~24 formatted pages).
-* **Sub-Second LPU Latency & TPM Protection**: Keeps Time-To-First-Token (TTFT) ultra-fast (<400ms on Groq LPU) and prevents exceeding Tokens-Per-Minute rate limits on high-speed inference endpoints.
-* **Configurable Scaling**: The budget is modular and easily configurable (`SESSION_BUDGET = 8192` in `index.tsx` and `backend/main.py`) to scale to 16k, 32k, or 128k when attached to full-context enterprise endpoints.
+### Session budget
+
+The default session budget is 8,192 tokens. It is configured through `SESSION_BUDGET` in `index.tsx` and `backend/main.py`.
 
 ---
 
-## 📊 Internal Evaluation Scorecard
+## Internal Evaluation Scorecard
 
 Evaluated against the complete 20-case test dataset (`backend/eval_dataset.json`):
 
 | Evaluation Dimension | Measured Metric | Hackathon Target | Status |
 | :--- | :---: | :---: | :---: |
-| **Overall Decision Accuracy** | **95.0%** (19/20) | > 85.0% | 🟢 Exceeded |
-| **Safety Refusal Accuracy** | **100.0%** (9/9) | 100.0% | 🟢 Perfect |
-| **Citation Validity Rate** | **100.0%** (30/30) | 100.0% | 🟢 Perfect |
-| **Unsupported Claim Rate** | **0.0%** (0/30) | 0.0% | 🟢 Zero Hallucination |
-| **Faithfulness Rate** | **100.0%** (30/30) | > 95.0% | 🟢 Perfect |
-| **Retrieval Precision@5** | **0.84** | > 0.70 | 🟢 High Relevance |
-| **P95 Latency** | **< 2.9s** | < 4.0s | 🟢 High Speed |
+| **Overall Decision Accuracy** | **95.0%** (19/20) | > 85.0% | Exceeded |
+| **Safety Refusal Accuracy** | **100.0%** (9/9) | 100.0% | Met target |
+| **Citation Validity Rate** | **100.0%** (30/30) | 100.0% | Met target |
+| **Unsupported Claim Rate** | **0.0%** (0/30) | 0.0% | Met target |
+| **Faithfulness Rate** | **100.0%** (30/30) | > 95.0% | Met target |
+| **Retrieval Precision@5** | **0.84** | > 0.70 | Met target |
+| **P95 Latency** | **< 2.9s** | < 4.0s | Met target |
 
 ---
 
-## 🕸️ Knowledge Graph & Codebase Architecture (Graphify)
+## Knowledge Graph & Codebase Architecture (Graphify)
 
 The codebase has been mapped and analyzed into a persistent Knowledge Graph using **Graphify**:
 
-* 🌐 **Interactive Graph Visualizer**: Open [`graphify-out/graph.html`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/graph.html) in your browser for 2D/3D cluster navigation.
-* 📋 **Audit Report & Metrics**: Read [`graphify-out/GRAPH_REPORT.md`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/GRAPH_REPORT.md) for community cohesion scores.
-* 📦 **GraphRAG Data**: [`graphify-out/graph.json`](file:///e:/MohamedWorks/Hackathon/grounded-insights/graphify-out/graph.json) contains raw structured node/edge definitions (**704 nodes · 1,199 edges · 84 communities**).
+* **Interactive Graph Visualizer**: Open [`graphify-out/graph.html`](graphify-out/graph.html) in your browser for 2D/3D cluster navigation.
+* **Audit Report & Metrics**: Read [`graphify-out/GRAPH_REPORT.md`](graphify-out/GRAPH_REPORT.md) for community cohesion scores.
+* **GraphRAG Data**: [`graphify-out/graph.json`](graphify-out/graph.json) contains raw structured node/edge definitions (**704 nodes · 1,199 edges · 84 communities**).
 
-### 👑 Great Nodes (Core Architectural Hubs)
+### Core architectural components
 | Node | Type | Connected Edges | Architectural Responsibility |
 | :--- | :---: | :---: | :--- |
 | **`cn()`** | Function | **246 edges** | Central UI styling utility bridge across all React components |
@@ -162,19 +155,19 @@ python -m backend.evaluation
 
 ---
 
-## 🏆 Hackathon Checkpoint Verification
+## Hackathon Checkpoint Verification
 
 Verified **83/83 requirements** across Days 1–4 curriculum tracks:
 
-* ✅ **Day 1: Scope & Ingestion** (9/9): Multi-document corpus (USPSTF 2018 + 2023), `bge-small-en-v1.5` embeddings, ChromaDB cosine vector index, metadata preservation (`document`, `section`, `page`, `chunk_id`).
-* ✅ **Day 2: Retrieval Optimization** (16/16): Evaluated Top-K (K=5), Config A chunking (500 chars / 75 overlap), Precision@3 & Precision@5 calculated, logged similarity scores.
-* ✅ **Day 3: Grounded Generation** (16/16): Strict 7-rule system prompt, structured Recommendation/Excerpt/Citation JSON schema, 3-tier refusal behavior, adversarial failure testing.
-* ✅ **Day 4: Guardrails & Safety** (28/28): Pre-retrieval risk classifier, retrieval threshold gate (`0.57`), post-gen invented citation firewall, 3 core metrics calculated, all 5 "NOT READY" failure modes cleared.
-* ✅ **Clinical UX** (14/14): Radial confidence indicators, interactive citation inspector, suggested next actions, no raw JSON leaks, mobile drawer navigation.
+* **Day 1: Scope & Ingestion** (9/9): Multi-document corpus (USPSTF 2018 + 2023), `bge-small-en-v1.5` embeddings, ChromaDB cosine vector index, metadata preservation (`document`, `section`, `page`, `chunk_id`).
+* **Day 2: Retrieval Optimization** (16/16): Evaluated Top-K (K=5), Config A chunking (500 chars / 75 overlap), Precision@3 & Precision@5 calculated, logged similarity scores.
+* **Day 3: Grounded Generation** (16/16): Strict 7-rule system prompt, structured Recommendation/Excerpt/Citation JSON schema, 3-tier refusal behavior, adversarial failure testing.
+* **Day 4: Guardrails & Safety** (28/28): Pre-retrieval risk classifier, retrieval threshold gate (`0.57`), post-gen invented citation firewall, 3 core metrics calculated, all 5 "NOT READY" failure modes cleared.
+* **Clinical UX** (14/14): Radial confidence indicators, interactive citation inspector, suggested next actions, no raw JSON leaks, mobile drawer navigation.
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
 * **Runtime & Framework**: Python 3.11+ / FastAPI / Uvicorn
@@ -196,7 +189,7 @@ Verified **83/83 requirements** across Days 1–4 curriculum tracks:
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### 1. Clone & Set Up Backend
 
@@ -216,7 +209,7 @@ cp .env.example .env
 
 | Environment Variable | Description | Default / Example | Priority / Requirement |
 | :--- | :--- | :--- | :---: |
-| `GROQ_API_KEY` | Groq LPU API key for ultra-fast (`~400ms`) live synthesis | `gsk_...` | **1st Priority** *(Recommended)* |
+| `GROQ_API_KEY` | Groq LPU API key for low-latency (`~400ms`) live synthesis | `gsk_...` | **1st Priority** *(Recommended)* |
 | `GROQ_MODEL` | Groq model identifier | `llama-3.3-70b-versatile` | Optional (defaults to 70B versatile) |
 | `OPEN_ROUTER_KEY` | OpenRouter API key for multi-model failover | `sk-or-v1-...` | **2nd Priority** *(Failover)* |
 | `OPEN_ROUTER_MODEL` | OpenRouter model identifier | `google/gemma-4-26b-a4b-it:free` | Optional |
@@ -227,7 +220,7 @@ cp .env.example .env
 | `VITE_SUPABASE_ANON_KEY`| Supabase public anon key with RLS | `eyJhbGciOi...` | Optional |
 | `NGROK_AUTHTOKEN` | Ngrok Auth token for automatic public tunnels | `2a...` | Optional (for Flutter / remote dev) |
 
-> 💡 **Offline / Simulation Mode**: If no LLM API keys are provided in `.env`, the system automatically enters **deterministic simulation mode** — extracting and synthesizing directly from top retrieved ChromaDB passages without crashing or requiring any API keys.
+> **Offline / Simulation Mode**: If no LLM API keys are provided in `.env`, the system automatically enters **deterministic simulation mode** — extracting and synthesizing directly from top retrieved ChromaDB passages without crashing or requiring any API keys.
 
 Start the FastAPI server:
 ```bash
@@ -260,7 +253,7 @@ flutter run -d windows --dart-define=API_BASE_URL=https://your-ngrok-or-render-u
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 grounded-insights/
@@ -297,7 +290,7 @@ grounded-insights/
 
 ---
 
-## 🌐 Live Production Deployments
+## Live Production Deployments
 
 * **Frontend (Cloudflare Pages)**: [https://grounded-insights.mohamedbuisness2.workers.dev/](https://grounded-insights.mohamedbuisness2.workers.dev/)
 * **Backend API (Render)**: [https://grounded-o09a.onrender.com](https://grounded-o09a.onrender.com)
@@ -307,16 +300,16 @@ grounded-insights/
 
 ---
 
-## 🛡️ Medical Disclaimer
+## Medical Disclaimer
 *Grounded is built as an educational demonstration of evidence-bound Clinical Decision Support for the AI Clinical Decision Support Lite Hackathon. It does not provide medical diagnoses, treatment prescriptions, or individualized medical advice. Always consult a licensed clinician for medical care.*
 
 ---
 
-## 📜 License
+## License
 This project is licensed under the **Apache License 2.0** — see the [LICENSE](./LICENSE) file for full details.
 
 ---
 
-## 👥 Team: **El Safe Refusal**
-* Built with ❤️ for the AI Clinical Decision Support Hackathon.
+## Team: **El Safe Refusal**
+Built for the AI Clinical Decision Support Hackathon.
 
